@@ -1,17 +1,24 @@
 import type { ReactNode } from 'react'
-import { Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import { Navigate } from 'react-router-dom'
 import type { RootState } from '../store/rootReducer'
+import type { UserRole } from '../modules/auth/types'
 
 interface RequireRoleProps {
-  allowedRoles: string[]
+  roles:UserRole[]
   children: ReactNode
 }
 
-const RequireRole = ({ allowedRoles, children }: RequireRoleProps) => {
-  const role = useSelector((state: RootState) => state.auth.role)
+const RequireRole = ({ roles, children }: RequireRoleProps) => {
+  const userRole = useSelector(
+    (state: RootState) => state.auth.user?.role
+  )
 
-  if (!role || !allowedRoles.includes(role)) {
+  if (!userRole) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!roles.includes(userRole)) {
     return <Navigate to="/" replace />
   }
 

@@ -1,4 +1,5 @@
 export type AuthProvider = 'LOCAL' | 'GOOGLE' | 'MICROSOFT'
+export type UserRole = 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR' | 'EMPLOYEE'
 
 export interface LoginRequest {
   email: string
@@ -20,6 +21,7 @@ export interface AuthResponse {
 export interface MeResponse {
   id: string
   email: string
-  role: string
+  role: UserRole
   companyId?: string
 }
+

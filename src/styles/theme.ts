@@ -12,20 +12,43 @@ export const theme = createTheme({
   },
 
   palette: {
-    primary: {
-      main: '#1976d2',
+    // primary: {
+    //   main: '#1976d2',
+    // },
+    // secondary: {
+    //   main: '#9c27b0',
+    // },
+    // success: {
+    //   main: '#2e7d32',
+    // },
+    // warning: {
+    //   main: '#ed6c02',
+    // },
+    // error: {
+    //   main: '#d32f2f',
+    // },
+     primary: {
+      main: '#c1d3ff',      // pastel blue
+      contrastText: '#1f2937',
     },
+
     secondary: {
-      main: '#9c27b0',
+      main: '#c5f0d1',      // pastel green
+      contrastText: '#1f2937',
     },
+
     success: {
-      main: '#2e7d32',
+      main: '#d8f273',      // success green
+      contrastText: '#1f2937',
     },
-    warning: {
-      main: '#ed6c02',
-    },
+
     error: {
-      main: '#d32f2f',
+      main: '#d32f2f',      // normalized red (accessible)
+      contrastText: '#ffffff',
+    },
+     warning: {
+      main: '#f9b3b3',      // pastel red as warning/accent
+      contrastText: '#1f2937',
     },
     info: {
       main: '#0288d1',

@@ -10,10 +10,6 @@ hrms-fe/
 │  │  ├─ AppProviders.tsx         # Redux, Router, Theme
 │  │  └─ routes.tsx               # route definitions only
 │  │
-│  ├─ config/                     # mirrors backend /config
-│  │  ├─ env.ts                   # env-safe access
-│  │  └─ constants.ts             # roles, enums, static keys
-│  │
 │  ├─ middlewares/                # frontend guards 
 │  │  ├─ RequireAuth.tsx
 │  │  ├─ RequireRole.tsx
@@ -45,7 +41,20 @@ hrms-fe/
 │  │  │  ├─ api.ts
 │  │  │  ├─ slice.ts
 │  │  │  ├─ types.ts
-│  │  │  └─ pages/
+|  |  |  ├─ hooks.ts
+|  |  |  ├─ hooks.admin.ts       # Hold admin-only view logic
+│  │  │  ├─ pages/
+│  │  │  │  
+│  │  │  │
+│  │  │  ├─ components/
+│  │  │  │  ├─ AdminProfileHeader.tsx
+│  │  │  │  ├─ AdminOrgInfo.tsx
+│  │  │  │  ├─ AdminHierarchyView.tsx
+│  │  │  │  ├─ ProfileCard.tsx
+│  │  │  │  ├─ ManagerCard.tsx
+│  │  │  │  ├─ PeerList.tsx
+│  │  │  │  ├─ ReporteeList.tsx
+│  │  │  │  └─ LeaveStatusBadge.tsx
 │  │  │
 │  │  ├─ attendance/
 │  │  │  ├─ api.ts
@@ -61,10 +70,26 @@ hrms-fe/
 │  │  │
 │  │  └─ audit/                   # future-proof
 │  │
-│  ├─ dashboards/                 # role-based composition
-│  │  ├─ super-admin/
+│  ├─ dashboards/
+│  │  ├─ employee/
+│  │  │  └─ EmployeeDashboard.tsx
+│  │  │
 │  │  ├─ company-admin/
-│  │  └─ employee/
+│  │  │  ├─ CompanyAdminDashboard.tsx
+│  │  │  ├─ EmployeeList.tsx
+│  │  │  ├─ EmployeeProfileView.tsx
+│  │  │  ├─ LeaveApprovals.tsx
+│  │  │  ├─ AttendanceOverview.tsx
+│  │  │  ├─ Holidays.tsx
+│  │  │  └─ Organization.tsx
+│  │  │
+│  │  └─ super-admin/
+│  │     ├─ SuperAdminDashboard.tsx
+│  │     ├─ CompanyOnboarding.tsx
+│  │     └─ CompanyList.tsx                 # role-based composition
+|  | 
+│  │  
+│  │  
 │  │
 │  ├─ components/
 │  │  ├─ ui/                      # headless, reusable
@@ -282,13 +307,16 @@ Checklist:
 
 ### ⏳ Station 4 – Attendance (Geo)
 Status: ⏳ In-Progress
+(logic mostly done, UI surfacing pending)
+⚠️ Note for LLMs: Attendance domain is implemented, but admin-facing UI is not yet surfaced
 
-1. Geo-location utilities (browser API wrapper)
-2. Geo permission & error handling
-3. Attendance API layer
-4. Attendance Redux slice
-5. Attendance hooks (check-in / check-out)
-6. Attendance state  Validation & edge cases 
+ Execution Order (STRICT)
+  1. Geo-location utilities (browser API wrapper)
+  2. Geo permission & error handling
+  3. Attendance API layer
+  4. Attendance Redux slice
+  5. Attendance hooks (check-in / check-out)
+  6. Attendance state  Validation & edge cases 
 
 Checklist:
 - [x] Geo utilities created
@@ -308,15 +336,202 @@ Attendance hooks corrected:
 ---
 
 ### ⏳ Station 5 – Dashboards
-Status: ⏸ NOT STARTED
+Status: ⏳ In Progress
 
-- Super Admin
-- Company Admin / HR
-- Employee
+Structure:
+- Phase 5.1 – Employee Dashboard (core)
+- Phase 5.2 – Company Admin / HR Dashboard
+- Phase 5.3 – Super Admin Dashboard
+
+#### Phase 5.1 - Employee Profile Dashboard
+  Execution Order – Phase 5.1 (STRICT)
+  0. Employee domain types (visibility-safe models)
+  1. Employee API layer
+  2. Employee Redux slice
+  3. Employee hooks
+  4. EmployeeDashboard layout (NO styling polish)
+  5. Profile & hierarchy components
+  6. Leave-status integration (read-only)
+
+Checklist:
+- [x] Employee domain types defined (visibility-safe)
+- [x] Employee API layer created (getMe, getById, list)
+- [x] Employee Redux slice created and wired
+        Employee slice cleanup:
+          - Removed unused EmployeeMini import
+          - Slice depends only on profile + hierarchy contracts
+- [x] Employee hooks implemented
+- [x] Profile + hierarchy derived in hooks
+- [x] Bootstrap logic added
+- [x] EmployeeDashboard layout created
+- [x] Bootstrap wired
+- [x] Profile & hierarchy data rendered (skeleton)
+- [x] ProfileCard extracted
+- [x] ManagerCard extracted
+- [x] PeerList extracted
+- [x] ReporteeList extracted
+- [x] LeaveStatusBadge added
+- [x] EmployeeDashboard refactored to components
+- [x] Leave-status read-only integration completed
+- [x] Team & hierarchy leave visibility enabled
+      Leave API fix:
+      - Updated getToday to accept scope parameter
+      - Synced frontend with backend /api/leaves/today contract
+- [x] Brand color palette finalized
+- [x] Applied centrally via MUI theme
+- [x] EmployeeDashboard layout refined
+- [x] Mobile-first card stacking implemented
+- [x] Responsive grid added for tablet/desktop
+- [x] Visual hierarchy improved
+- [x] Card headers standardized
+- [x] Mobile density optimized
+- [x] Loading state polished
+- [x] Error state clarified
+- [x] Empty states made user-friendly
+- [x] Touch-friendly spacing applied
+- [x] Card inner padding standardized
+- [x] Mobile ergonomics improved
+
+#### Phase 5.2 - CompanyAdmin/HR Dashboard  
+🔄 Execution Order (STRICT)
+  Step 1. Admin/HR route & dashboard shell 
+  Step 2. Employee list (read-only)
+  Step 3. Employee profile view (admin perspective)
+  Step 4. Leave approvals (read-only → approve/reject)
+  Step 5. Attendance overview + overrides
+  Step 6. Holidays CRUD
+  Step 7. Org structure (dept / team / designation)
+  ✅ Meaning: APIs, hooks, types, routing contracts exist.
+Checklist:
+      Auth typing:
+      - UserRole union added to auth/types.ts
+      - auth.user.role is now strongly typed
+
+- [x] Admin/HR routes & dashboard shell
+      Phase 5.2 – Step 2.2:
+      - Admin employee list hook added (modules/employee/hooks.admin.ts)
+      - Default filter: active employees
+      - Optional toggle to include inactive employees
+      - No Redux used (read-only)
+      Design note:
+      - Admin employee list reuses employee domain APIs (`modules/employee`)
+      - No admin-specific backend endpoints introduced
+
+
+- [x] Employee list (read-only)
+
+      - Default admin view shows active employees
+      - Inactive employees available via filter toggle
+      Admin refactor follow-up:
+      - Removed admin-owned domain types
+      - Admin employee view types moved to employee module
+      - Admin treated strictly as a dashboard/composition layer
+      Employee types refinement:
+      - Added isActive to EmployeeMini (admin filtering)
+      - Standardized team naming
+      - Added employeeCode to EmployeeProfile
+      - Removed unused EmployeeStatus enum
+      - Kept admin-only types out of domain
+      Phase 5.2 – Step 2.3:
+      - Admin employee list UI created
+      - Mobile card view implemented
+      - Tablet/Desktop table view implemented
+      - Active/inactive toggle wired
+      - Loading, error, empty states handled
+      Table usage fix:
+      - Aligned EmployeeList usage with Table API
+      - Replaced `columns` with `headers`
+
+- [ ] Employee profile (admin view)
+      Step 3.1 Admin employee fetch (by ID)
+      Step 3.2 Profile view + basic edits (HR/Admin)
+      Step 3.3 Active/inactive toggle
+      Step 3.4 Org & hierarchy panel
+      Step 3.5 Attendance panel (read-only + disabled overrides)
+      Step 3.6 Leave panel (read-only)
+      Step 3.7 Route integration from employee list
+
+
+      Design decision:
+      - Admin Employee Profile wires all major management actions early
+     Admin Employee Profile – Scope Clarification:
+      - Profile viewing and editing enabled for HR/Admin
+      - Activation/deactivation enabled
+      - Hierarchy visible (read-only)
+      - Attendance and leave data visible (read-only)
+      - Role changes, manager reassignment, attendance overrides, and leave approvals are deferred to their dedicated steps to avoid cross-domain coupling
+    Role management decision:
+      - User role changes are supported in admin profile
+      - Role change is NOT part of profile edit form
+      - Exposed as a dedicated admin action with confirmation
+      - Prevents accidental privilege escalation
+      - Aligns with auth guards & JWT refresh flow
+
+
+- [ ] Leave approvals
+- [ ] Attendance management
+- [ ] Holiday management
+- [ ] Organization structure
 
 ---
 
-### ⏳ Station 6 – PWA Hardening
+### Station 6 - Admin UI Surface
+Status: ⏸ NOT STARTED
+  Purpose:
+    Ensure no “headless” features exist
+    Catch UX & data bugs early
+    Align LLM understanding with reality
+
+#### Phase 6.1 – Admin Employee Profile UI (VISIBLE)
+
+This is where your current missing piece goes.
+
+Checklist:
+
+- [ ]  Route /admin/employees/:employeeId renders
+- [ ]  Employee profile visible in browser
+- [ ]  Admin-specific layout (denser than employee)
+- [ ]  Profile edit UI rendered (HR/Admin)
+- [ ]  Active/inactive toggle works
+- [ ]  Org & hierarchy panels visible
+- [ ]  Attendance summary visible
+- [ ]  Leave summary visible
+- [ ]  Navigation back to list works
+
+📌 This explicitly solves your concern:
+“employee profile UI wiring is still pending”
+
+#### Phase 6.2 – Admin Leave & Attendance UI
+
+Checklist:
+
+- [ ]  Leave approvals visible
+- [ ]  Approve / reject actions functional
+- [ ]  Attendance overview visible
+- [ ]  Attendance overrides UI wired
+
+#### Phase 6.3 – Admin Org & Holidays UI
+
+Checklist:
+
+- [ ] Holiday CRUD visible
+- [ ] Department / team / designation UI visible
+- [ ] Org structure navigable
+---
+### Station 7 - Super Admin Dashboard
+Status: ⏸ NOT STARTED
+---
+
+### Station 8 - UX, Polish and Hardening
+Status: ⏸ NOT STARTED
+Loading skeletons
+Error boundaries
+Empty states
+Mobile ergonomics
+Accessibility pass
+
+---
+### ⏳ Station 9 – PWA Hardening
 Status: ⏸ NOT STARTED
 
 - Offline handling
@@ -343,7 +558,7 @@ Last Updated: Station 0 started
 - Auth: JWT + Refresh Token (cookie)
 - Company isolation via `x-company-id`
 
-Last Updated: Station 0 started
+Last Updated: Station 5 started
 
 
 
