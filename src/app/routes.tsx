@@ -1,46 +1,63 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 
-import LoginPage from '../modules/auth/pages/LoginPage'
-import NotFound from '../components/feedback/NotFound'
+import AuthGate from './Authgate'
 import AppShell from '../components/layout/AppShell/AppShell'
-import RequireAuth from '../middlewares/RequireAuth'
-import CompanyAdminDashboard from '../dashboards/company-admin/CompanyAdminDashboard'
-import RequireRole from '../middlewares/RequireRole'
+import RequirePermission from '../middlewares/RequirePermission'
 
+import EmployeeDashboard from '../dashboards/employee/EmployeeDashboard'
+import CompanyAdminDashboard from '../dashboards/company-admin/CompanyAdminDashboard'
+import SuperAdminDashboard from '../dashboards/super-admin/SuperAdminDashboard'
+import EmployeeProfileView from '../dashboards/company-admin/EmployeeProfileView'
 
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/login" element={<LoginPage />} />
+      {/* Auth Gate */}
+      <Route path="/" element={<AuthGate />} />
 
-      {/* Protected App */}
+      {/* Employee */}
       <Route
-        path="/"
+        path="/employee"
         element={
-          <RequireAuth>
+          <RequirePermission permission="employee.view">
             <AppShell />
-          </RequireAuth>
+          </RequirePermission>
         }
       >
-        {/* Temporary placeholder */}
-        <Route index element={<div>Protected Home</div>} />
+        <Route index element={<EmployeeDashboard />} />
       </Route>
 
+      {/* Admin */}
       <Route
         path="/admin"
         element={
-          <RequireRole roles={['HR', 'COMPANY_ADMIN']}>
-            <CompanyAdminDashboard />
-          </RequireRole>
+          <RequirePermission permission="admin.access">
+            <AppShell />
+          </RequirePermission>
         }
-      />
+      >
+        <Route index element={<CompanyAdminDashboard />} />
+        <Route
+          path="employees/:employeeId"
+          element={<EmployeeProfileView />}
+        />
+      </Route>
 
-
-      {/* Fallback */}
-      <Route path="*" element={<NotFound />} />
+      {/* Super Admin */}
+      <Route
+        path="/super-admin"
+        element={
+          <RequirePermission permission="company.manage">
+            <AppShell />
+          </RequirePermission>
+        }
+      >
+        <Route index element={<SuperAdminDashboard />} />
+      </Route>
     </Routes>
   )
 }
 
 export default AppRoutes
+
+

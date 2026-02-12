@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { employeeApi } from './api'
 import type { EmployeeMini } from './types'
+import type { EmployeeProfile } from './types'
 
 export interface UseAdminEmployeeListResult {
   employees: EmployeeMini[]
@@ -54,4 +55,33 @@ export const useAdminEmployeeList = (): UseAdminEmployeeListResult => {
     showInactive,
     toggleShowInactive,
   }
+}
+
+
+export const useAdminEmployeeById = (employeeId?: string) => {
+  const [data, setData] = useState<EmployeeProfile | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>()
+
+  useEffect(() => {
+    if (!employeeId) return
+
+    const fetchEmployee = async () => {
+      setLoading(true)
+      setError(undefined)
+
+      try {
+        const response = await employeeApi.getById(employeeId)
+        setData(response)
+      } catch {
+        setError('Failed to load employee profile')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchEmployee()
+  }, [employeeId])
+
+  return { data, loading, error }
 }

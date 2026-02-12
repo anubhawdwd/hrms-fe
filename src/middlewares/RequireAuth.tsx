@@ -1,3 +1,4 @@
+// src/middlewares/RequireAuth.tsx
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -8,15 +9,15 @@ interface RequireAuthProps {
 }
 
 const RequireAuth = ({ children }: RequireAuthProps) => {
-  const { isAuthenticated, status } = useSelector(
+  const { status } = useSelector(
     (state: RootState) => state.auth
   )
 
-  if (status === 'idle') {
+  if (status === 'idle' || status === 'loading') {
     return null
   }
 
-  if (!isAuthenticated) {
+  if (status === 'unauthenticated') {
     return <Navigate to="/login" replace />
   }
 

@@ -1,3 +1,4 @@
+// src/lib/api/auth.interceptor.ts
 import type { AxiosInstance } from 'axios'
 import { store } from '../../store/store'
 

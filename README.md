@@ -12,7 +12,7 @@ hrms-fe/
 │  │
 │  ├─ middlewares/                # frontend guards 
 │  │  ├─ RequireAuth.tsx
-│  │  ├─ RequireRole.tsx
+│  │  ├─ RequirePermission.tsx
 │  │  └─ RequireCompany.tsx
 │  │
 │  ├─ modules/                  
@@ -143,7 +143,8 @@ hrms-fe/
 │  │  ├─ geoPolicy.ts           # helper that maps GeoError
 │  │  ├─ date.ts
 │  │  ├─ responsive.ts             # replaces media-querry
-│  │  └─ permissions.ts
+│  │  ├─ dashboard.ts             # dashboard route helper
+│  │  └─ permissions.ts           # role based access 
 │  │
 │  ├─ types/
 │  │  ├─ api.ts                   # shared API DTOs
@@ -442,16 +443,6 @@ Checklist:
       - Aligned EmployeeList usage with Table API
       - Replaced `columns` with `headers`
 
-- [ ] Employee profile (admin view)
-      Step 3.1 Admin employee fetch (by ID)
-      Step 3.2 Profile view + basic edits (HR/Admin)
-      Step 3.3 Active/inactive toggle
-      Step 3.4 Org & hierarchy panel
-      Step 3.5 Attendance panel (read-only + disabled overrides)
-      Step 3.6 Leave panel (read-only)
-      Step 3.7 Route integration from employee list
-
-
       Design decision:
       - Admin Employee Profile wires all major management actions early
      Admin Employee Profile – Scope Clarification:
@@ -466,7 +457,280 @@ Checklist:
       - Exposed as a dedicated admin action with confirmation
       - Prevents accidental privilege escalation
       - Aligns with auth guards & JWT refresh flow
+        SUPER_ADMIN → manages companies
+        COMPANY_ADMIN → manages company users & roles
+        HR → manages employee HR data (not roles)
+        Promotion of job ≠ promotion of system role
+---
+#### Journal Update at this point
+Below is a **drop-in journal update** that clearly explains:
 
+* Current role-based system
+* Why we are changing it
+* How we are changing it
+* What remains temporary
+* What must never be done again
+* How future backend RBAC migration will work
+
+This will make future LLM context almost foolproof.
+
+---
+
+# 🔐 Authorization Architecture Refactor (Pre-RBAC Abstraction)
+
+## 🚨 Current State (Before Refactor)
+
+Authorization is currently **role-based only**.
+
+### Role Source
+
+Defined in:
+
+```
+src/modules/auth/types.ts
+```
+
+```ts
+export type UserRole =
+  | 'SUPER_ADMIN'
+  | 'COMPANY_ADMIN'
+  | 'HR'
+  | 'EMPLOYEE'
+```
+
+### Role Guard
+
+Implemented in:
+
+```
+src/middlewares/RequireRole.tsx
+```
+
+Used in:
+
+```
+src/app/routes.tsx
+```
+
+Example:
+
+```tsx
+<RequireRole roles={['HR', 'COMPANY_ADMIN']}>
+  <CompanyAdminDashboard />
+</RequireRole>
+```
+
+### Problem With This Approach
+
+* UI directly depends on enum roles.
+* Business logic is coupled to role names.
+* Adding new roles later causes UI rewrite.
+* Granular permissions (SaaS-ready) are not possible.
+* Scaling beyond 4 roles becomes messy.
+
+---
+
+# 🎯 Strategic Decision
+
+We will move to:
+
+## ✅ Permission-Based Authorization (Namespaced Model)
+
+Even though backend still uses enum roles.
+
+Frontend will stop checking roles directly.
+
+Instead, it will check **permissions**.
+
+---
+
+# 🧠 New Authorization Model (Frontend Layer)
+
+## 1️⃣ Permission Type (Namespaced)
+
+Permissions will use dot-notation for scalability:
+
+Examples:
+
+```
+employee.view
+employee.edit
+employee.role.change
+leave.approve
+attendance.override
+org.manage
+holiday.manage
+company.manage
+```
+
+This structure scales to 50+ permissions cleanly.
+
+---
+
+## 2️⃣ Temporary Role → Permission Mapping Adapter
+
+Internally we will define:
+
+```ts
+ROLE_PERMISSION_MAP: Record<UserRole, Permission[]>
+```
+
+Example:
+
+```ts
+COMPANY_ADMIN → [
+  'employee.view',
+  'employee.edit',
+  'employee.role.change',
+  'leave.approve',
+  'attendance.override',
+  'org.manage',
+  'holiday.manage',
+]
+```
+
+This mapping is temporary.
+
+Later it will be replaced by:
+
+```ts
+user.permissions[] coming from backend
+```
+
+UI code will not change.
+
+---
+
+## 3️⃣ New Guard Pattern
+
+Instead of:
+
+```
+<RequireRole roles={['HR']} />
+```
+
+We will use:
+
+```
+<RequirePermission permission="leave.approve" />
+```
+
+And:
+
+```
+hasPermission(user, 'employee.edit')
+```
+
+---
+
+# 🚫 Hard Rule From This Point Forward
+
+Never check:
+
+```ts
+user.role === 'HR'
+```
+
+Never introduce new `<RequireRole>` usage.
+
+Role enum becomes internal-only adapter.
+
+All UI must use permission abstraction.
+
+---
+
+# 🏗 Backend Migration Plan (Future – Post Dashboard Completion)
+
+After dashboards are complete:
+
+Backend will migrate to:
+
+* Role table
+* Permission table
+* RolePermission join
+* UserRole join
+* `/auth/me` returns permissions array
+
+Example future response:
+
+```json
+{
+  "id": "uuid",
+  "role": "HR",
+  "permissions": [
+    "employee.view",
+    "employee.edit",
+    "leave.approve"
+  ]
+}
+```
+
+Frontend will:
+
+* Delete ROLE_PERMISSION_MAP
+* Read permissions from JWT/me response
+* No UI rewrite needed
+
+---
+
+# 🧠 Why We Are Delaying Backend RBAC
+
+* Faster dashboard delivery
+* Reduced context switching
+* No production DB concerns
+* Clean abstraction avoids future rewrite
+* SaaS-ready without blocking progress
+
+---
+
+# 🔄 Refactor Impact Scope
+
+This change affects:
+
+* Route guards
+* Navigation visibility
+* Admin profile role change control
+* Leave approval visibility
+* Attendance override visibility
+* Super admin features
+
+This is a foundational shift.
+
+---
+
+# 🧭 Current Authorization Status
+
+| Layer                      | Status                                    |
+| -------------------------- | ----------------------------------------- |
+| Backend                    | Enum roles only                           |
+| Frontend                   | Migrating to permission abstraction       |
+| UI checks                  | Moving from role-based → permission-based |
+| RBAC DB tables             | Not implemented yet                       |
+| Migration complexity later | Minimal                                   |
+
+---
+
+# 📌 Important LLM Context
+
+If assisting in future:
+
+* Do NOT suggest role checks.
+* Always use permission abstraction.
+* Assume role enum is transitional.
+* Permission namespace must follow dot-notation.
+* Do not create new role enums.
+
+---
+---
+Continuation of station 5 Phase 2 
+- [ ] Employee profile (admin view)
+      Step 3.1 Admin employee fetch (by ID)
+      Step 3.2 Profile view + basic edits (HR/Admin)
+      Step 3.3 Active/inactive toggle
+      Step 3.4 Org & hierarchy panel
+      Step 3.5 Attendance panel (read-only + disabled overrides)
+      Step 3.6 Leave panel (read-only)
+      Step 3.7 Route integration from employee list
 
 - [ ] Leave approvals
 - [ ] Attendance management
@@ -517,6 +781,7 @@ Checklist:
 - [ ] Holiday CRUD visible
 - [ ] Department / team / designation UI visible
 - [ ] Org structure navigable
+
 ---
 ### Station 7 - Super Admin Dashboard
 Status: ⏸ NOT STARTED
@@ -545,20 +810,15 @@ Status: ⏸ NOT STARTED
 - Backend URL: http://localhost:4000
 - Auth: JWT + Refresh Token (cookie)
 - Company isolation via `x-company-id`
+- Lighthouse optimization (at end)
 
-Last Updated: Station 0 started
+Authorization strategy:
 
-- Lighthouse optimization
+* Frontend uses permission abstraction
+* Backend still uses enum roles (temporary)
+* RBAC migration planned after dashboard completion
 
----
-
-## 🧠 Context Snapshot (Always Update)
-- Repo: hrms-fe
-- Backend URL: http://localhost:4000
-- Auth: JWT + Refresh Token (cookie)
-- Company isolation via `x-company-id`
-
-Last Updated: Station 5 started
+Last Updated: Station 5 Phase 2 – Authorization Refactor Planned
 
 
 

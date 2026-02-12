@@ -1,3 +1,4 @@
+// src/modules/auth/types.ts
 export type AuthProvider = 'LOCAL' | 'GOOGLE' | 'MICROSOFT'
 export type UserRole = 'SUPER_ADMIN' | 'COMPANY_ADMIN' | 'HR' | 'EMPLOYEE'
 

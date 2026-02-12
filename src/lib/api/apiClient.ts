@@ -1,3 +1,4 @@
+// src/lib/api/apiClient.ts
 import axios from 'axios'
 import { setupAuthInterceptor } from './auth.interceptor'
 import { setupCompanyInterceptor } from './company.interceptor'
