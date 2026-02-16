@@ -1,178 +1,62 @@
 # hrms-fe
 Frontend repo for HRMS platform, using React typescript redux and MaterialUI 
-
-hrms-fe/
-├─ public/
-│
-├─ src/
-│  ├─ app/
-│  │  ├─ App.tsx                  # root app
-│  │  ├─ AppProviders.tsx         # Redux, Router, Theme
-│  │  └─ routes.tsx               # route definitions only
-│  │
-│  ├─ middlewares/                # frontend guards 
-│  │  ├─ RequireAuth.tsx
-│  │  ├─ RequirePermission.tsx
-│  │  └─ RequireCompany.tsx
-│  │
-│  ├─ modules/                  
-│  │
-│  │  ├─ auth/
-│  │  |  ├─ pages/
-│  │  |  |  └─LoginPage.tsx
-│  │  │  ├─ api.ts                # login, refresh, me
-│  │  │  ├─ slice.ts              # authSlice
-│  │  │  ├─ selectors.ts
-│  │  │  ├─ types.ts
-│  │  │  └─ hooks.ts
-│  │  │
-│  │  ├─ company/
-│  │  │  ├─ api.ts
-│  │  │  ├─ slice.ts
-│  │  │  ├─ types.ts
-│  │  │  └─ pages/
-│  │  │
-│  │  ├─ organization/
-│  │  │  ├─ api.ts
-│  │  │  ├─ types.ts
-│  │  │  └─ pages/
-│  │  │
-│  │  ├─ employee/
-│  │  │  ├─ api.ts
-│  │  │  ├─ slice.ts
-│  │  │  ├─ types.ts
-|  |  |  ├─ hooks.ts
-|  |  |  ├─ hooks.admin.ts       # Hold admin-only view logic
-│  │  │  ├─ pages/
-│  │  │  │  
-│  │  │  │
-│  │  │  ├─ components/
-│  │  │  │  ├─ AdminProfileHeader.tsx
-│  │  │  │  ├─ AdminOrgInfo.tsx
-│  │  │  │  ├─ AdminHierarchyView.tsx
-│  │  │  │  ├─ ProfileCard.tsx
-│  │  │  │  ├─ ManagerCard.tsx
-│  │  │  │  ├─ PeerList.tsx
-│  │  │  │  ├─ ReporteeList.tsx
-│  │  │  │  └─ LeaveStatusBadge.tsx
-│  │  │
-│  │  ├─ attendance/
-│  │  │  ├─ api.ts
-│  │  │  ├─ slice.ts
-│  │  │  ├─ hooks.ts              # useCheckIn, useCheckOut
-│  │  │  └─ types.ts              
-│  │  │
-│  │  ├─ leave/
-│  │  │  ├─ api.ts
-│  │  │  ├─ slice.ts
-│  │  │  ├─ types.ts
-│  │  │  └─ pages/
-│  │  │
-│  │  └─ audit/                   # future-proof
-│  │
-│  ├─ dashboards/
-│  │  ├─ employee/
-│  │  │  └─ EmployeeDashboard.tsx
-│  │  │
-│  │  ├─ company-admin/
-│  │  │  ├─ CompanyAdminDashboard.tsx
-│  │  │  ├─ EmployeeList.tsx
-│  │  │  ├─ EmployeeProfileView.tsx
-│  │  │  ├─ LeaveApprovals.tsx
-│  │  │  ├─ AttendanceOverview.tsx
-│  │  │  ├─ Holidays.tsx
-│  │  │  └─ Organization.tsx
-│  │  │
-│  │  └─ super-admin/
-│  │     ├─ SuperAdminDashboard.tsx
-│  │     ├─ CompanyOnboarding.tsx
-│  │     └─ CompanyList.tsx                 # role-based composition
-|  | 
-│  │  
-│  │  
-│  │
-│  ├─ components/
-│  │  ├─ ui/                      # headless, reusable
-│  │  │  ├─ Card/
-│  │  |  |  └─ Card.tsx
-│  │  │  ├─ Button/
-│  │  |  |  └─ Button.tsx
-│  │  │  ├─ Container
-│  │  |  |  └─ Container.tsx
-│  │  │  ├─ Modal/
-│  │  |  |  └─ Modal.tsx
-│  │  │  ├─ Typography
-│  │  |  |  └─ Typography.tsx
-│  │  │  ├─ Table/
-│  │  |  |  └─ Table.tsx
-│  │  │  └─ Form/
-│  │  |       └─Form.tsx
-│  │  │
-│  │  ├─ layout/                  # shell components
-│  │  │  ├─ AppShell/
-│  │  │  ├─ Sidebar/
-│  │  │  └─ Header/
-│  │  │
-│  │  └─ feedback/
-│  │     ├─ Notfound.tsx
-│  │     ├─ Toast/
-│  │     └─ Dialog/
-│  │
-│  ├─ lib/                        # backend /utils equivalent
-│  │  ├─ api/
-│  │  │  ├─ apiClient.ts
-│  │  │  ├─ auth.interceptor.ts
-│  │  │  ├─ company.interceptor.ts
-│  │  │  └─ error.interceptor.ts
-│  │  │
-│  │  ├─ storage.ts               # memory helpers
-│  │  └─ logger.ts
-│  │
-│  ├─ store/                      # Redux root
-│  │  ├─ store.ts
-│  │  └─ rootReducer.ts
-│  │
-│  ├─ styles/                     # 🔥 design system
-│  │  ├─ style-vars.css
-│  │  ├─ globals.css
-│  │  ├─ theme.ts                 # MUI theme (all colors here)
-│  │  └─ mui-overrides.css
-│  │
-│  ├─ utils/                      # mirrors backend /utils
-│  │  ├─ geo.ts
-│  │  ├─ geoPolicy.ts           # helper that maps GeoError
-│  │  ├─ date.ts
-│  │  ├─ responsive.ts             # replaces media-querry
-│  │  ├─ dashboard.ts             # dashboard route helper
-│  │  └─ permissions.ts           # role based access 
-│  │
-│  ├─ types/
-│  │  ├─ api.ts                   # shared API DTOs
-│  │  └─ common.ts
-│  │
-│  ├─ main.tsx
-│  └─ vite-env.d.ts
-│
-├─ .env
-├─ tsconfig.json
-├─ package.json
-├─ vite.config.ts
-└─ README.md
-
-
-##🔁 Backend ↔ Frontend Mapping (Mental Model)
-| Backend         | Frontend                    |
-| --------------- | --------------------------- |
-| `modules/*`     | `modules/*`                 |
-| `controller.ts` | `api.ts`                    |
-| `service.ts`    | `hooks.ts / slice.ts`       |
-| `repository.ts` | `RTK Query cache`           |
-| `middlewares/`  | `RequireRole / RequireAuth` |
-| `utils/geo.ts`  | `utils/geo.ts`              |
-| `types.ts`      | `types.ts`                  |
-
-
-
+src/
+├── api/
+│   ├── client.ts
+│   ├── auth.api.ts
+│   ├── employee.api.ts
+│   ├── attendance.api.ts
+│   ├── leave.api.ts
+│   └── organization.api.ts
+├── app/
+│   ├── App.tsx
+│   ├── AuthBootstrap.tsx
+│   └── routes.tsx
+├── components/
+│   ├── AppShell.tsx
+│   ├── DataTable.tsx
+│   ├── EmptyState.tsx
+│   ├── ErrorState.tsx
+│   └── LoadingState.tsx
+├── guards/
+│   ├── RequireAuth.tsx
+│   └── RequirePermission.tsx
+├── hooks/
+│   ├── useAuth.ts
+│   ├── useEmployee.ts
+│   ├── useAttendance.ts
+│   ├── useLeave.ts
+│   └── usePermission.ts
+├── pages/
+│   ├── AuthGate.tsx
+│   ├── Login.tsx
+│   ├── EmployeeDashboard.tsx
+│   ├── AdminDashboard.tsx
+│   ├── AdminEmployeeList.tsx
+│   ├── AdminEmployeeProfile.tsx
+│   ├── SuperAdminDashboard.tsx
+│   └── NotFound.tsx
+├── store/
+│   ├── store.ts
+│   └── auth.slice.ts
+├── styles/
+│   ├── theme.ts
+│   ├── style-vars.css
+│   └── globals.css
+├── types/
+│   ├── auth.types.ts
+│   ├── employee.types.ts
+│   ├── attendance.types.ts
+│   ├── leave.types.ts
+│   ├── organization.types.ts
+│   └── company.types.ts
+├── utils/
+│   ├── permissions.ts
+│   ├── geo.ts
+│   ├── geoPolicy.ts
+│   ├── responsive.ts
+│   └── dashboard.ts
+└── main.tsx
 
 # HRMS Frontend – Coding Journal
 

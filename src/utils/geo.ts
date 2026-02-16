@@ -1,3 +1,4 @@
+// src/utils/geo.ts
 export type GeoCoords = {
   latitude: number
   longitude: number

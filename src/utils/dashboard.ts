@@ -1,4 +1,5 @@
-import type { UserRole } from '../modules/auth/types'
+// src/utils/dashboard.ts
+import type { UserRole } from '../types/auth.types'
 
 export const getDashboardRoute = (role?: UserRole): string => {
   switch (role) {

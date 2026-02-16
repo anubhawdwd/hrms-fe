@@ -1,3 +1,4 @@
+// src/utils/geoPolicy.ts
 import type { GeoError, GeoErrorCode } from './geo'
 
 export type GeoAppAction =
