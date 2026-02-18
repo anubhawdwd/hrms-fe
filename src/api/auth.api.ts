@@ -1,5 +1,5 @@
 // src/api/auth.api.ts
-import { apiClient, setCompanyId, setToken } from './client'
+import { apiClient, authClient, setToken, setCompanyId } from './client'
 import type {
   LoginRequest,
   LoginResponse,
@@ -9,7 +9,8 @@ import type {
 
 export const authApi = {
   login: async (payload: LoginRequest): Promise<LoginResponse> => {
-    const { data } = await apiClient.post<LoginResponse>(
+    // Use authClient — login should never trigger refresh interceptor
+    const { data } = await authClient.post<LoginResponse>(
       '/api/auth/login',
       payload
     )
@@ -21,26 +22,77 @@ export const authApi = {
   },
 
   me: async (): Promise<MeResponse> => {
+    // Use apiClient — needs auth header, and 401 retry is valid here
     const { data } = await apiClient.get<MeResponse>('/api/auth/me')
-     if (data.companyId) {
+    if (data.companyId) {
       setCompanyId(data.companyId)
     }
     return data
   },
 
   refresh: async (): Promise<RefreshResponse> => {
-    const { data } = await apiClient.post<RefreshResponse>(
-      '/api/auth/refresh',
-      {},
-      { withCredentials: true }
+    // Use authClient — MUST NOT go through 401 interceptor
+    const { data } = await authClient.post<RefreshResponse>(
+      '/api/auth/refresh'
     )
     setToken(data.accessToken)
     return data
   },
 
   logout: async (): Promise<void> => {
-    await apiClient.post('/api/auth/logout')
+    // Use authClient — logout should work even with expired token
+    try {
+      await authClient.post('/api/auth/logout')
+    } catch {
+      // Ignore logout errors
+    }
     setToken(null)
     setCompanyId(null)
   },
 }
+
+// import { apiClient, setCompanyId, setToken } from './client'
+// import type {
+//   LoginRequest,
+//   LoginResponse,
+//   MeResponse,
+//   RefreshResponse,
+// } from '../types/auth.types'
+
+// export const authApi = {
+//   login: async (payload: LoginRequest): Promise<LoginResponse> => {
+//     const { data } = await apiClient.post<LoginResponse>(
+//       '/api/auth/login',
+//       payload
+//     )
+//     setToken(data.accessToken)
+//     if (data.user?.companyId) {
+//       setCompanyId(data.user.companyId)
+//     }
+//     return data
+//   },
+
+//   me: async (): Promise<MeResponse> => {
+//     const { data } = await apiClient.get<MeResponse>('/api/auth/me')
+//      if (data.companyId) {
+//       setCompanyId(data.companyId)
+//     }
+//     return data
+//   },
+
+//   refresh: async (): Promise<RefreshResponse> => {
+//     const { data } = await apiClient.post<RefreshResponse>(
+//       '/api/auth/refresh',
+//       {},
+//       { withCredentials: true }
+//     )
+//     setToken(data.accessToken)
+//     return data
+//   },
+
+//   logout: async (): Promise<void> => {
+//     await apiClient.post('/api/auth/logout')
+//     setToken(null)
+//     setCompanyId(null)
+//   },
+// }

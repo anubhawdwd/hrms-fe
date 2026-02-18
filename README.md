@@ -1,777 +1,587 @@
-# hrms-fe
-Frontend repo for HRMS platform, using React typescript redux and MaterialUI 
-src/
-├── api/
-│   ├── client.ts
-│   ├── auth.api.ts
-│   ├── employee.api.ts
-│   ├── attendance.api.ts
-│   ├── leave.api.ts
-│   └── organization.api.ts
-├── app/
-│   ├── App.tsx
-│   ├── AuthBootstrap.tsx
-│   └── routes.tsx
-├── components/
-│   ├── AppShell.tsx
-│   ├── DataTable.tsx
-│   ├── EmptyState.tsx
-│   ├── ErrorState.tsx
-│   └── LoadingState.tsx
-├── guards/
-│   ├── RequireAuth.tsx
-│   └── RequirePermission.tsx
-├── hooks/
-│   ├── useAuth.ts
-│   ├── useEmployee.ts
-│   ├── useAttendance.ts
-│   ├── useLeave.ts
-│   └── usePermission.ts
-├── pages/
-│   ├── AuthGate.tsx
-│   ├── Login.tsx
-│   ├── EmployeeDashboard.tsx
-│   ├── AdminDashboard.tsx
-│   ├── AdminEmployeeList.tsx
-│   ├── AdminEmployeeProfile.tsx
-│   ├── SuperAdminDashboard.tsx
-│   └── NotFound.tsx
-├── store/
-│   ├── store.ts
-│   └── auth.slice.ts
-├── styles/
-│   ├── theme.ts
-│   ├── style-vars.css
-│   └── globals.css
-├── types/
-│   ├── auth.types.ts
-│   ├── employee.types.ts
-│   ├── attendance.types.ts
-│   ├── leave.types.ts
-│   ├── organization.types.ts
-│   └── company.types.ts
-├── utils/
-│   ├── permissions.ts
-│   ├── geo.ts
-│   ├── geoPolicy.ts
-│   ├── responsive.ts
-│   └── dashboard.ts
-└── main.tsx
-
-# HRMS Frontend – Coding Journal
-
-## 📌 Project Overview
-A production-grade HRMS frontend built with:
-- React 18 + Vite
-- TypeScript (strict)
-- Redux Toolkit + RTK Query
-- Material UI + Custom CSS variables
-- PWA-first (mobile-friendly always)
-- Role-based dashboards
-- Geo-location based attendance
-
-Backend: Custom HRMS API (Node.js, Prisma)
-
----
-
-## 🧱 Core Principles (Non-Negotiable)
-
-- Mobile-first, PWA-ready
-- 3 breakpoints ONLY:
-  - Mobile
-  - Tablet
-  - Desktop
-- UI components are:
-  - Flexible
-  - Prop-driven
-  - No hardcoded styles
-- Redux ONLY for global state
-- API calls ONLY via centralized client
-- Folder structure mirrors backend modules
-
----
-
-## 🚉 Project Stations & Status
-
-### 🟢 Station 0 – Project Bootstrap
-**Goal:** Initialize project, install dependencies, PWA-ready setup
-
-Status: ✅ Completed
-
-Tasks:
-- [x] Create Vite + React + TypeScript app
-- [x] Install core dependencies
-- [x] Setup ESLint + Prettier
-- [x] Toast feedback system added (react-hot-toast)
-- [x] Setup PWA plugin
-- [x] Define breakpoints strategy
-- [x] App shell renders successfully
-
----
-
-### ⏳ Station 1 – App Foundation
-Status:  ✅ Completed
-execution order:
-🔄 Execution Order (STRICT) checklist:
-- [x] 1. AppProviders
-- [x] 2. Redux skeleton
-- [x] 3. Theme skeleton
-- [x] 4. Routes
-- [x] 5. Guards
-- [x] 6. AppShell - Layout // components/layout/AppShell/AppShell.tsx
-- [x] 7. Placeholder pages (Login, NotFound)
-
----
 
 
-### ⏳ Station 2 – API Client & Auth
-Status: ✅ Completed
+# HRMS Platform — Complete LLM Context Document
 
-Execution Order:
-1. Axios base client
-2. Request interceptors (auth, company)
-3. Response interceptor (401 refresh)
-4. Auth API layer
-5. Auth Redux slice
-6. /auth/me bootstrap
-7. Guard wiring to real auth & company state
+## 1. Project Overview
 
-Checklist:
-- [x] Axios client created
-- [x] Auth interceptor added
-- [x] Company interceptor added
-- [x] Response interceptor added (401 refresh & retry)
-- [x] Refresh-token flow implemented
-- [x] Auth API layer completed
-- [x] Auth slice wired
-- [x] /auth/me bootstrap implemented
-- [x] Guards wired to real auth & company state
+Full-stack HRMS (Human Resource Management System) platform with:
+- **Geo-fenced attendance** (check-in/check-out from office premises)
+- **Leave management** (apply, approve, reject, cancel, encash)
+- **Employee hierarchy** (manager → reportees → peers)
+- **Role-based dashboards** (Employee, HR/Admin, Super Admin)
+- **Multi-company support** (tenant isolation via companyId)
 
----
+### Tech Stack
 
-### ⏳ Station 3 – Design System
-Status: ✅ Completed
+| Layer | Technology |
+|---|---|
+| Backend | Node.js, Express, TypeScript |
+| ORM | Prisma (PostgreSQL) |
+| Frontend | React 19, TypeScript, Vite |
+| State | Redux Toolkit (auth only) |
+| UI | Material UI v7 |
+| Auth | JWT access (15m) + refresh cookie (30d) |
+| DB | PostgreSQL 15 (Docker) |
+| Geo | Haversine distance, browser Geolocation API |
 
-Design tokens file renamed to `style-vars.css`
-Reason: clearer intent 
+### Running the Project
 
-Execution Order:
-1. Global CSS tokens
-2. MUI theme mapping
-3. Responsive utilities
-4. Base UI components
-5. Design system validation
+```bash
+# Backend (localhost:4000)
+cd hrms-be
+docker compose up -d
+npm run dev
 
-*Note* Design decision:
-- MUI theme is the single source of truth for colors
-- CSS variables are used only for spacing, radius, shadow, motion
-- Avoid CSS variables in MUI palette (runtime limitation)
+# Frontend (localhost:5173)
+cd hrms-fe
+npm run dev
 
-
-responsive utility example usage:
-import { useIsMobile } from '../../utils/responsive'
-
-const Example = () => {
-  const isMobile = useIsMobile()
-  return <div>{isMobile ? 'Mobile' : 'Not Mobile'}</div>
-}
-
-
-Checklist:
-
-- [x] Global style variables created (`style-vars.css`)
-- [x] Style variables mapped to MUI theme
-- [x] Responsive utilities added (mobile/tablet/desktop helpers)
-- [x] Base UI components created (Button, Card, Container, Modal, Typography)
-- [x] Form UI primitive added
-- [x] Table UI primitive added
-
-- [x] Design system validated across breakpoints (mobile / tablet / desktop sanity checks + rules)
-
----
-
-### ⏳ Station 4 – Attendance (Geo)
-Status: ⏳ In-Progress
-(logic mostly done, UI surfacing pending)
-⚠️ Note for LLMs: Attendance domain is implemented, but admin-facing UI is not yet surfaced
-
- Execution Order (STRICT)
-  1. Geo-location utilities (browser API wrapper)
-  2. Geo permission & error handling
-  3. Attendance API layer
-  4. Attendance Redux slice
-  5. Attendance hooks (check-in / check-out)
-  6. Attendance state  Validation & edge cases 
-
-Checklist:
-- [x] Geo utilities created
-- [x] Geo permission & error handling strategy defined
-- [x] Attendance API layer created (typed, backend-aligned)
-- [x] Attendance Redux slice created and wired
-- [x] Attendance hooks implemented (check-in, check-out, selectors)
-- [x] Attendance validation rules defined
-- [x] Edge cases handled (double check-in, invalid check-out, geo failure)
-
-Attendance hooks corrected:
-- Removed conditional returns from hooks
-- Moved validation into callbacks
-- Prevented Redux dispatch during render
-
-
----
-
-### ⏳ Station 5 – Dashboards
-Status: ⏳ In Progress
-
-Structure:
-- Phase 5.1 – Employee Dashboard (core)
-- Phase 5.2 – Company Admin / HR Dashboard
-- Phase 5.3 – Super Admin Dashboard
-
-#### Phase 5.1 - Employee Profile Dashboard
-  Execution Order – Phase 5.1 (STRICT)
-  0. Employee domain types (visibility-safe models)
-  1. Employee API layer
-  2. Employee Redux slice
-  3. Employee hooks
-  4. EmployeeDashboard layout (NO styling polish)
-  5. Profile & hierarchy components
-  6. Leave-status integration (read-only)
-
-Checklist:
-- [x] Employee domain types defined (visibility-safe)
-- [x] Employee API layer created (getMe, getById, list)
-- [x] Employee Redux slice created and wired
-        Employee slice cleanup:
-          - Removed unused EmployeeMini import
-          - Slice depends only on profile + hierarchy contracts
-- [x] Employee hooks implemented
-- [x] Profile + hierarchy derived in hooks
-- [x] Bootstrap logic added
-- [x] EmployeeDashboard layout created
-- [x] Bootstrap wired
-- [x] Profile & hierarchy data rendered (skeleton)
-- [x] ProfileCard extracted
-- [x] ManagerCard extracted
-- [x] PeerList extracted
-- [x] ReporteeList extracted
-- [x] LeaveStatusBadge added
-- [x] EmployeeDashboard refactored to components
-- [x] Leave-status read-only integration completed
-- [x] Team & hierarchy leave visibility enabled
-      Leave API fix:
-      - Updated getToday to accept scope parameter
-      - Synced frontend with backend /api/leaves/today contract
-- [x] Brand color palette finalized
-- [x] Applied centrally via MUI theme
-- [x] EmployeeDashboard layout refined
-- [x] Mobile-first card stacking implemented
-- [x] Responsive grid added for tablet/desktop
-- [x] Visual hierarchy improved
-- [x] Card headers standardized
-- [x] Mobile density optimized
-- [x] Loading state polished
-- [x] Error state clarified
-- [x] Empty states made user-friendly
-- [x] Touch-friendly spacing applied
-- [x] Card inner padding standardized
-- [x] Mobile ergonomics improved
-
-#### Phase 5.2 - CompanyAdmin/HR Dashboard  
-🔄 Execution Order (STRICT)
-  Step 1. Admin/HR route & dashboard shell 
-  Step 2. Employee list (read-only)
-  Step 3. Employee profile view (admin perspective)
-  Step 4. Leave approvals (read-only → approve/reject)
-  Step 5. Attendance overview + overrides
-  Step 6. Holidays CRUD
-  Step 7. Org structure (dept / team / designation)
-  ✅ Meaning: APIs, hooks, types, routing contracts exist.
-Checklist:
-      Auth typing:
-      - UserRole union added to auth/types.ts
-      - auth.user.role is now strongly typed
-
-- [x] Admin/HR routes & dashboard shell
-      Phase 5.2 – Step 2.2:
-      - Admin employee list hook added (modules/employee/hooks.admin.ts)
-      - Default filter: active employees
-      - Optional toggle to include inactive employees
-      - No Redux used (read-only)
-      Design note:
-      - Admin employee list reuses employee domain APIs (`modules/employee`)
-      - No admin-specific backend endpoints introduced
-
-
-- [x] Employee list (read-only)
-
-      - Default admin view shows active employees
-      - Inactive employees available via filter toggle
-      Admin refactor follow-up:
-      - Removed admin-owned domain types
-      - Admin employee view types moved to employee module
-      - Admin treated strictly as a dashboard/composition layer
-      Employee types refinement:
-      - Added isActive to EmployeeMini (admin filtering)
-      - Standardized team naming
-      - Added employeeCode to EmployeeProfile
-      - Removed unused EmployeeStatus enum
-      - Kept admin-only types out of domain
-      Phase 5.2 – Step 2.3:
-      - Admin employee list UI created
-      - Mobile card view implemented
-      - Tablet/Desktop table view implemented
-      - Active/inactive toggle wired
-      - Loading, error, empty states handled
-      Table usage fix:
-      - Aligned EmployeeList usage with Table API
-      - Replaced `columns` with `headers`
-
-      Design decision:
-      - Admin Employee Profile wires all major management actions early
-     Admin Employee Profile – Scope Clarification:
-      - Profile viewing and editing enabled for HR/Admin
-      - Activation/deactivation enabled
-      - Hierarchy visible (read-only)
-      - Attendance and leave data visible (read-only)
-      - Role changes, manager reassignment, attendance overrides, and leave approvals are deferred to their dedicated steps to avoid cross-domain coupling
-    Role management decision:
-      - User role changes are supported in admin profile
-      - Role change is NOT part of profile edit form
-      - Exposed as a dedicated admin action with confirmation
-      - Prevents accidental privilege escalation
-      - Aligns with auth guards & JWT refresh flow
-        SUPER_ADMIN → manages companies
-        COMPANY_ADMIN → manages company users & roles
-        HR → manages employee HR data (not roles)
-        Promotion of job ≠ promotion of system role
----
-#### Journal Update at this point
-Below is a **drop-in journal update** that clearly explains:
-
-* Current role-based system
-* Why we are changing it
-* How we are changing it
-* What remains temporary
-* What must never be done again
-* How future backend RBAC migration will work
-
-This will make future LLM context almost foolproof.
-
----
-
-# 🔐 Authorization Architecture Refactor (Pre-RBAC Abstraction)
-
-## 🚨 Current State (Before Refactor)
-
-Authorization is currently **role-based only**.
-
-### Role Source
-
-Defined in:
-
-```
-src/modules/auth/types.ts
+# DB viewer
+# Adminer at localhost:8080
 ```
 
-```ts
-export type UserRole =
-  | 'SUPER_ADMIN'
-  | 'COMPANY_ADMIN'
-  | 'HR'
-  | 'EMPLOYEE'
-```
+---
 
-### Role Guard
+## 2. Backend Architecture
 
-Implemented in:
+### Folder Structure
 
 ```
-src/middlewares/RequireRole.tsx
+hrms-be/
+├── prisma/
+│   ├── schema.prisma
+│   ├── seed.ts
+│   └── migrations/
+├── src/
+│   ├── server.ts
+│   ├── app.ts
+│   ├── config/
+│   │   ├── prisma.ts          # PrismaClient singleton
+│   │   └── auth.ts            # JWT secrets, cookie name
+│   ├── middlewares/
+│   │   ├── auth.middleware.ts  # JWT verification, sets req.user
+│   │   ├── requireRole.ts     # Role-based access control
+│   │   └── validateCompany.ts # x-company-id vs JWT validation, sets req.companyId
+│   ├── modules/
+│   │   ├── auth/              # login, refresh, logout, me, google, microsoft
+│   │   ├── company/           # CRUD (SUPER_ADMIN only)
+│   │   ├── organization/      # departments, teams, designations, office location
+│   │   ├── user/              # user CRUD (email, role, auth provider)
+│   │   ├── employee/          # employee profiles, hierarchy, leave bootstrap
+│   │   ├── attendance/        # check-in/out, geo-fence, violations, HR overrides
+│   │   └── leave/             # types, policies, requests, approvals, holidays, encashment
+│   ├── routes/
+│   │   └── index.ts           # mounts all module routes under /api
+│   ├── utils/
+│   │   ├── date.ts            # todayDateUTC, parseDateUTC (all dates UTC)
+│   │   └── geo.ts             # haversineDistanceMeters
+│   └── generated/prisma/      # Prisma generated client
+├── .env
+├── docker-compose.yml
+└── package.json
 ```
 
-Used in:
+### Module Pattern (Every Module)
 
 ```
-src/app/routes.tsx
+modules/{name}/
+├── routes.ts       # Express routes, middleware chains
+├── controller.ts   # Parse HTTP request/response ONLY
+├── service.ts      # Business logic, validation, transactions
+├── repository.ts   # Prisma queries ONLY
+└── types.ts        # DTOs and interfaces
 ```
 
-Example:
+### Key Backend Rules
 
-```tsx
-<RequireRole roles={['HR', 'COMPANY_ADMIN']}>
-  <CompanyAdminDashboard />
-</RequireRole>
+1. **Controllers** never touch Prisma directly
+2. **Services** contain all business logic and validation
+3. **Repositories** contain only Prisma queries, no business logic
+4. **All dates** use UTC via `todayDateUTC()` and `parseDateUTC()` from `utils/date.ts`
+5. **`req.user`** is set by `authenticateJWT` middleware (userId, companyId, role)
+6. **`req.companyId`** is set by `validateCompanyHeader` middleware (validated against JWT)
+7. **Employee identity** is always derived from `req.user.userId` for self-service routes — never from request body
+8. **Transactions** used for operations that modify multiple tables (leave approval + balance deduction)
+
+### Middleware Chain
+
+```
+authenticateJWT → validateCompanyHeader → requireRole(...) → controller
 ```
 
-### Problem With This Approach
+- `authenticateJWT`: Verifies JWT, sets `req.user = { userId, companyId, role }`
+- `validateCompanyHeader`: Reads `x-company-id` header, validates against `req.user.companyId` (SUPER_ADMIN bypasses), sets `req.companyId`
+- `requireRole`: Checks `req.user.role` against allowed roles
 
-* UI directly depends on enum roles.
-* Business logic is coupled to role names.
-* Adding new roles later causes UI rewrite.
-* Granular permissions (SaaS-ready) are not possible.
-* Scaling beyond 4 roles becomes messy.
+### Database Schema (Key Models)
+
+```
+Company
+  └── User (email, role, authProvider, passwordHash)
+       └── EmployeeProfile (employeeCode, names, designation, team, manager, dateOfBirth)
+            ├── AttendanceDay → AttendanceEvent[]
+            ├── LeaveBalance (per leaveType per year)
+            ├── LeaveRequest (fromDate, toDate, durationType, durationValue, status)
+            └── LeaveEncashment
+
+Organization:
+  Company → Department → Team
+  Company → Designation → DesignationAttendancePolicy
+  Company → OfficeLocation (lat, lng, radiusM)
+
+Leave Config:
+  Company → LeaveType (CL, SL, etc.)
+  Company → LeavePolicy (per leaveType per year)
+  Employee → EmployeeLeaveOverride (per leaveType per year)
+
+Attendance:
+  Employee → AttendanceDay → AttendanceEvent (CHECK_IN/CHECK_OUT)
+  Employee → EmployeeAttendanceOverride (autoPresent, attendanceExempt)
+  Company → AttendanceViolation (geo-fence violations log)
+
+Holiday:
+  Company → Holiday (name, date)
+```
+
+### Enums
+
+```typescript
+UserRole: SUPER_ADMIN | COMPANY_ADMIN | HR | EMPLOYEE
+AuthProvider: LOCAL | GOOGLE | MICROSOFT
+AttendanceStatus: PRESENT | ABSENT | PARTIAL | LEAVE
+AttendanceEventType: CHECK_IN | CHECK_OUT
+AttendanceSource: WEB | PWA
+LeaveDurationType: FULL_DAY | HALF_DAY | QUARTER_DAY | HOURLY
+LeaveRequestStatus: PENDING | APPROVED | REJECTED | CANCELLED
+LeaveEncashmentStatus: REQUESTED | APPROVED | REJECTED
+GenderRestriction: MALE | FEMALE | OTHER
+```
+
+### Role Capability Matrix
+
+| Area | SUPER_ADMIN | COMPANY_ADMIN | HR | EMPLOYEE |
+|---|---|---|---|---|
+| Company CRUD | ✅ | ❌ | ❌ | ❌ |
+| Organization (dept/team/designation) | ✅ | ✅ | ✅ | ❌ |
+| User CRUD | ✅ | ✅ | ✅ | ❌ |
+| Employee CRUD | ✅ | ✅ | ✅ | ❌ |
+| Leave config (types/policy/holiday) | ✅ | ✅ | ✅ | ❌ |
+| Leave apply | ✅ | ✅ | ✅ | ✅ |
+| Leave approve/reject | ✅ | ✅ | ✅ | ❌ |
+| Attendance check-in/out | ✅ | ✅ | ✅ | ✅ |
+| Attendance HR overrides | ✅ | ✅ | ✅ | ❌ |
+| View own profile | ✅ | ✅ | ✅ | ✅ |
+
+### API Endpoints Summary
+
+```
+Auth:
+  POST   /api/auth/login
+  POST   /api/auth/google
+  POST   /api/auth/microsoft
+  POST   /api/auth/refresh
+  POST   /api/auth/logout
+  GET    /api/auth/me
+
+Company:
+  POST   /api/company/
+  GET    /api/company/
+  GET    /api/company/:companyId
+  PATCH  /api/company/:companyId
+
+Users:
+  POST   /api/users/
+  GET    /api/users/
+  PATCH  /api/users/:userId
+  DELETE /api/users/:userId
+
+Employees:
+  POST   /api/employees/
+  GET    /api/employees/
+  GET    /api/employees/me
+  GET    /api/employees/:employeeId
+  PUT    /api/employees/me/profile
+  PUT    /api/employees/:employeeId/admin
+  DELETE /api/employees/:employeeId
+  PATCH  /api/employees/:employeeId/manager
+
+Organization:
+  POST|GET|PATCH|DELETE /api/organization/departments
+  POST|GET|PATCH|DELETE /api/organization/teams
+  POST|GET|PATCH|DELETE /api/organization/designations
+  POST|PUT|GET          /api/organization/office-location
+  POST|GET              /api/organization/designation-attendance-policy
+  GET                   /api/organization/designation-attendance-policy/:designationId
+
+Attendance:
+  POST   /api/attendance/check-in
+  POST   /api/attendance/check-out
+  GET    /api/attendance/day?date=YYYY-MM-DD
+  GET    /api/attendance/range?from=YYYY-MM-DD&to=YYYY-MM-DD
+  GET    /api/attendance/violations
+  POST   /api/attendance/employee-override
+  POST   /api/attendance/hr/attendance-day
+  POST   /api/attendance/hr/attendance-event
+  PATCH  /api/attendance/hr/attendance-day/:attendanceDayId
+
+Leave:
+  GET    /api/leave/types
+  POST   /api/leave/types
+  PATCH  /api/leave/types/:leaveTypeId
+  POST   /api/leave/policies
+  GET    /api/leave/policies?year=YYYY
+  POST   /api/leave/requests
+  GET    /api/leave/requests/my
+  GET    /api/leave/requests/pending
+  PATCH  /api/leave/requests/:requestId/cancel
+  PATCH  /api/leave/requests/:requestId/approve
+  PATCH  /api/leave/requests/:requestId/reject
+  PATCH  /api/leave/requests/:requestId/hr-cancel
+  GET    /api/leave/balances/my?year=YYYY
+  GET    /api/leave/today?scope=team|hierarchy|company
+  POST   /api/leave/encashments
+  PATCH  /api/leave/encashments/:encashmentId/approve
+  PATCH  /api/leave/encashments/:encashmentId/reject
+  POST   /api/leave/employee-override
+  POST   /api/leave/holidays
+  GET    /api/leave/holidays
+  DELETE /api/leave/holidays/:holidayId
+```
+
+### Critical Business Logic
+
+**Attendance Check-in Flow:**
+1. Resolve employee from JWT userId
+2. Check attendance policy (employee override → designation policy)
+3. If exempt → skip
+4. If auto-present → mark present without geo
+5. Check if on approved leave → mark LEAVE
+6. Validate geo-fence (WEB source — log only; PWA — enforce)
+7. Create/find AttendanceDay → add CHECK_IN event → update status
+
+**Leave Apply Flow:**
+1. Resolve employee from JWT userId
+2. Validate dates (no cross-year, hourly must be same day)
+3. Check for overlapping leave requests
+4. Fetch leave balance for year
+5. Fetch policy + employee override
+6. Calculate effective days using `toDays(durationType, durationValue)`
+7. Apply sandwich rule if enabled (count weekends/holidays between leave days)
+8. Check balance sufficiency
+9. Create leave request (status: PENDING)
+
+**Leave Approval Flow:**
+1. Verify request is PENDING
+2. Resolve approver's employee ID from JWT userId
+3. Convert `durationValue` to days via `toDays()`
+4. Transaction: deduct balance + update status to APPROVED + set approvedById
+
+**Duration to Days Conversion:**
+```
+FULL_DAY    → durationValue × 1
+HALF_DAY    → durationValue × 0.5
+QUARTER_DAY → durationValue × 0.25
+HOURLY      → durationValue / 8
+```
+
+**Employee Creation:**
+1. Auto-generate next employeeCode
+2. Create profile
+3. Bootstrap leave balances based on active policies (pro-rated by joining month)
+
+### Seed Data (Default)
+
+```
+Company: Phibonacci Solutions
+Users: admin@, hr@, ravi@, ram@, anubhaw@, sanket@ (all password: ChangeMe@123)
+Departments: Engineering, Human Resources, Management
+Teams: Platform Team
+Designations: CTO, Cloud Architect, Software Engineer I, Tester, HR Manager, Company Administrator
+Leave Types: Casual Leave (CL, 12/yr), Sick Leave (SL, 6/yr)
+Office Location: 23.052228, 72.493801, radius 200m (may need to be increased for desktop testing)
+```
 
 ---
 
-# 🎯 Strategic Decision
+## 3. Frontend Architecture
 
-We will move to:
-
-## ✅ Permission-Based Authorization (Namespaced Model)
-
-Even though backend still uses enum roles.
-
-Frontend will stop checking roles directly.
-
-Instead, it will check **permissions**.
-
----
-
-# 🧠 New Authorization Model (Frontend Layer)
-
-## 1️⃣ Permission Type (Namespaced)
-
-Permissions will use dot-notation for scalability:
-
-Examples:
+### Folder Structure
 
 ```
-employee.view
-employee.edit
-employee.role.change
-leave.approve
-attendance.override
-org.manage
-holiday.manage
-company.manage
+hrms-fe/
+├── src/
+│   ├── main.tsx
+│   ├── app/
+│   │   ├── App.tsx              # Provider tree (Redux, Router, Theme, Toaster)
+│   │   ├── AuthBootstrap.tsx    # Silent refresh on app load
+│   │   └── routes.tsx           # All route definitions
+│   ├── api/
+│   │   ├── client.ts            # apiClient (with interceptors) + authClient (without)
+│   │   ├── auth.api.ts          # login, me, refresh, logout
+│   │   ├── employee.api.ts      # getMe, getById, list
+│   │   ├── attendance.api.ts    # checkIn, checkOut, getDay, getRange
+│   │   ├── leave.api.ts         # types, balances, requests, approvals, holidays
+│   │   └── organization.api.ts  # departments, teams, designations, office location
+│   ├── store/
+│   │   ├── store.ts             # Redux store (auth reducer only)
+│   │   └── auth.slice.ts        # Auth state: user, status (idle|loading|authenticated|unauthenticated)
+│   ├── hooks/
+│   │   ├── useAuth.ts           # useAuth, useUser, useAuthStatus
+│   │   ├── useEmployee.ts       # useMyProfile, useEmployeeList, useEmployeeById
+│   │   ├── useAttendance.ts     # useCheckIn, useCheckOut, useTodayAttendance, useWeeklyAttendance
+│   │   ├── useLeave.ts          # useLeaveBalances, useMyLeaveRequests, useLeaveTypes, useHolidays, useTodayLeaves
+│   │   └── usePermission.ts     # useHasPermission
+│   ├── guards/
+│   │   ├── RequireAuth.tsx      # Redirects to / if unauthenticated
+│   │   └── RequirePermission.tsx # Permission-based route guard
+│   ├── pages/
+│   │   ├── AuthGate.tsx         # Landing: loading → login → redirect by role
+│   │   ├── Login.tsx            # Email/password login form
+│   │   ├── EmployeeDashboard.tsx # Profile, attendance, leave, hierarchy, calendar
+│   │   ├── AdminDashboard.tsx   # Hub with cards linking to admin sub-pages
+│   │   ├── AdminEmployeeList.tsx # Employee table with active/inactive toggle
+│   │   ├── AdminEmployeeProfile.tsx # Single employee view (profile + hierarchy)
+│   │   ├── AdminLeaveApprovals.tsx  # Pending leave requests with approve/reject
+│   │   ├── AdminHolidays.tsx    # Holiday CRUD
+│   │   ├── SuperAdminDashboard.tsx # Company list + create
+│   │   └── NotFound.tsx         # 404
+│   ├── components/
+│   │   ├── AppShell.tsx         # Header + logout + Outlet
+│   │   ├── DataTable.tsx        # Generic table component
+│   │   ├── LoadingState.tsx     # Spinner + message
+│   │   ├── EmptyState.tsx       # No data message
+│   │   ├── ErrorState.tsx       # Error message + retry button
+│   │   ├── ApplyLeaveModal.tsx  # Leave application form dialog
+│   │   └── LeaveRequestList.tsx # Leave requests with status chips + cancel
+│   ├── types/
+│   │   ├── auth.types.ts
+│   │   ├── employee.types.ts
+│   │   ├── attendance.types.ts
+│   │   ├── leave.types.ts
+│   │   ├── organization.types.ts
+│   │   └── company.types.ts
+│   ├── utils/
+│   │   ├── permissions.ts       # ROLE_PERMISSION_MAP, hasPermission()
+│   │   ├── geo.ts               # getCurrentLocation (browser API wrapper)
+│   │   ├── geoPolicy.ts         # mapGeoErrorToAppError
+│   │   ├── responsive.ts        # useIsMobile, useIsTablet, useIsDesktop
+│   │   └── dashboard.ts         # getDashboardRoute(role)
+│   └── styles/
+│       ├── theme.ts             # MUI theme (colors, typography, breakpoints)
+│       ├── style-vars.css       # CSS variables (spacing, radius, shadows, motion)
+│       └── globals.css          # Reset + base styles
+├── .env                         # VITE_API_BASE_URL=http://localhost:4000
+├── package.json
+└── vite.config.ts
 ```
 
-This structure scales to 50+ permissions cleanly.
+### Key Frontend Patterns
 
----
+**Two Axios Instances:**
+```
+apiClient  — Has auth header interceptor + 401 refresh retry
+authClient — No interceptors (used for login, refresh, logout to prevent loops)
+```
 
-## 2️⃣ Temporary Role → Permission Mapping Adapter
+**Auth Flow:**
+```
+App load → AuthBootstrap:
+  1. authApi.refresh() via authClient (no interceptors)
+  2. If success → authApi.me() → dispatch(setUser()) → status: 'authenticated'
+  3. If fail → dispatch(clearAuth()) → status: 'unauthenticated'
 
-Internally we will define:
+Login:
+  1. authApi.login() via authClient → sets token + companyId in memory
+  2. authApi.me() via apiClient → dispatch(setUser())
+  3. navigate(getDashboardRoute(role))
 
-```ts
+Token storage:
+  - Access token: in-memory variable (never localStorage)
+  - Refresh token: httpOnly cookie (set by backend)
+  - CompanyId: in-memory variable (set on login/me)
+```
+
+**In-Memory Token + CompanyId:**
+```typescript
+// client.ts exports:
+setToken(token)     // called by auth.api on login/refresh
+setCompanyId(id)    // called by auth.api on login/me
+// Request interceptor reads these and sets headers automatically
+```
+
+**Permission System:**
+```typescript
+// Temporary role → permission adapter (until backend RBAC)
 ROLE_PERMISSION_MAP: Record<UserRole, Permission[]>
+
+// Permissions used:
+'admin.access' | 'employee.view' | 'employee.edit' |
+'employee.role.change' | 'leave.view' | 'leave.approve' |
+'attendance.view' | 'attendance.override' | 'org.manage' |
+'holiday.manage' | 'company.manage'
+
+// Guard usage:
+<RequirePermission permission="admin.access">
+  <AppShell />
+</RequirePermission>
+
+// Hook usage:
+const canApprove = useHasPermission('leave.approve')
 ```
 
-Example:
+**Redux Usage:**
+- Redux is used ONLY for auth state (`user`, `status`)
+- All other data uses local component state via hooks
+- Hooks return `{ data, loading, error, reload }` pattern
 
-```ts
-COMPANY_ADMIN → [
-  'employee.view',
-  'employee.edit',
-  'employee.role.change',
-  'leave.approve',
-  'attendance.override',
-  'org.manage',
-  'holiday.manage',
-]
+**Route Structure:**
+```
+/                    → AuthGate (login or redirect)
+/employee            → RequirePermission('employee.view') → EmployeeDashboard
+/admin               → RequirePermission('admin.access') → AdminDashboard
+/admin/employees     → AdminEmployeeList
+/admin/employees/:id → AdminEmployeeProfile
+/admin/leave-approvals → AdminLeaveApprovals
+/admin/holidays      → AdminHolidays
+/super-admin         → RequirePermission('company.manage') → SuperAdminDashboard
+*                    → NotFound
 ```
 
-This mapping is temporary.
-
-Later it will be replaced by:
-
-```ts
-user.permissions[] coming from backend
+**Role → Dashboard Redirect:**
+```
+SUPER_ADMIN   → /super-admin
+COMPANY_ADMIN → /admin
+HR            → /admin
+EMPLOYEE      → /employee
 ```
 
-UI code will not change.
+### Frontend Type Contracts (Match Backend Responses)
 
----
-
-## 3️⃣ New Guard Pattern
-
-Instead of:
-
-```
-<RequireRole roles={['HR']} />
-```
-
-We will use:
-
-```
-<RequirePermission permission="leave.approve" />
-```
-
-And:
-
-```
-hasPermission(user, 'employee.edit')
-```
-
----
-
-# 🚫 Hard Rule From This Point Forward
-
-Never check:
-
-```ts
-user.role === 'HR'
-```
-
-Never introduce new `<RequireRole>` usage.
-
-Role enum becomes internal-only adapter.
-
-All UI must use permission abstraction.
-
----
-
-# 🏗 Backend Migration Plan (Future – Post Dashboard Completion)
-
-After dashboards are complete:
-
-Backend will migrate to:
-
-* Role table
-* Permission table
-* RolePermission join
-* UserRole join
-* `/auth/me` returns permissions array
-
-Example future response:
-
-```json
+```typescript
+// EmployeeListItem — matches GET /api/employees/
 {
-  "id": "uuid",
-  "role": "HR",
-  "permissions": [
-    "employee.view",
-    "employee.edit",
-    "leave.approve"
-  ]
+  id, employeeCode, firstName, lastName, displayName,
+  isActive, isProbation, joiningDate, dateOfBirth,
+  userId, companyId, designationId, teamId, managerId,
+  user: { email },
+  team: { name } | null,
+  designation: { name },
+  manager: { id, displayName } | null
+}
+
+// EmployeeDetail — matches GET /api/employees/me and /:id
+// extends EmployeeListItem with:
+{
+  subordinates: [{ id, displayName }]
+}
+
+// AttendanceDay — matches GET /api/attendance/day
+{
+  id, employeeId, date, status, totalMinutes,
+  events: [{ id, type, timestamp, source }]
+}
+
+// LeaveBalance — matches GET /api/leave/balances/my
+{
+  id, employeeId, year, allocated, used, carriedForward, remaining,
+  leaveType: { name, code }
+}
+
+// LeaveRequest — matches GET /api/leave/requests/my
+{
+  id, employeeId, fromDate, toDate, durationType, durationValue,
+  reason, status, approvedById, createdAt,
+  leaveType: { name, code }
 }
 ```
 
-Frontend will:
+### Known Quirks & Decisions
 
-* Delete ROLE_PERMISSION_MAP
-* Read permissions from JWT/me response
-* No UI rewrite needed
-
----
-
-# 🧠 Why We Are Delaying Backend RBAC
-
-* Faster dashboard delivery
-* Reduced context switching
-* No production DB concerns
-* Clean abstraction avoids future rewrite
-* SaaS-ready without blocking progress
+1. **Desktop geo-fencing is unreliable** (IP-based, 1-10km accuracy). Office radius may need to be large for desktop testing. Production enforcement is PWA/mobile only.
+2. **All dates stored in UTC**. Backend uses `todayDateUTC()` and `parseDateUTC()` to avoid timezone-shift bugs.
+3. **Leave duration conversion**: `toDays(durationType, value)` converts HOURLY to days using 8-hour workday. Balance always tracked in days.
+4. **`approvedById`** references `EmployeeProfile.id`, not `User.id`. Service resolves employee from JWT userId before approval.
+5. **Sandwich rule**: Weekends/holidays between leave days are counted as additional leave days (configurable per policy + employee override).
+6. **Leave balance bootstrap**: When an employee is created, leave balances are auto-created based on active policies for that year, pro-rated by joining month.
 
 ---
 
-# 🔄 Refactor Impact Scope
+## 4. Current Feature Status
 
-This change affects:
+### Fully Working (Backend + Frontend)
 
-* Route guards
-* Navigation visibility
-* Admin profile role change control
-* Leave approval visibility
-* Attendance override visibility
-* Super admin features
+- ✅ Auth (login, refresh, logout, session persistence)
+- ✅ Employee dashboard (profile, hierarchy, manager, peers, reportees)
+- ✅ Geo check-in / check-out with live working hours counter
+- ✅ Weekly attendance calendar with navigation
+- ✅ Leave balances with progress bars
+- ✅ Apply leave modal (full/half/quarter/hourly)
+- ✅ My leave requests list with self-cancel
+- ✅ Holiday list (employee view)
+- ✅ Admin dashboard hub
+- ✅ Admin employee list (active/inactive toggle)
+- ✅ Admin employee profile view
+- ✅ Admin leave approvals (approve/reject)
+- ✅ Admin holiday CRUD
+- ✅ Super admin company list + create
+- ✅ Permission-based routing
+- ✅ Logout
 
-This is a foundational shift.
+### Backend Done, Frontend Not Yet
 
----
+- ⏳ Employee onboarding form (create user + employee)
+- ⏳ Employee deactivation/exit
+- ⏳ Attendance overview (HR — date range per employee)
+- ⏳ Attendance overrides (HR)
+- ⏳ Attendance violations view
+- ⏳ Leave encashment UI
+- ⏳ Leave HR override UI
+- ⏳ Organization management (departments, teams, designations)
+- ⏳ Office location management
+- ⏳ User role management
+- ⏳ Birthday list
 
-# 🧭 Current Authorization Status
+### Not Implemented (Future)
 
-| Layer                      | Status                                    |
-| -------------------------- | ----------------------------------------- |
-| Backend                    | Enum roles only                           |
-| Frontend                   | Migrating to permission abstraction       |
-| UI checks                  | Moving from role-based → permission-based |
-| RBAC DB tables             | Not implemented yet                       |
-| Migration complexity later | Minimal                                   |
-
----
-
-# 📌 Important LLM Context
-
-If assisting in future:
-
-* Do NOT suggest role checks.
-* Always use permission abstraction.
-* Assume role enum is transitional.
-* Permission namespace must follow dot-notation.
-* Do not create new role enums.
-
----
----
-Continuation of station 5 Phase 2 
-- [ ] Employee profile (admin view)
-      Step 3.1 Admin employee fetch (by ID)
-      Step 3.2 Profile view + basic edits (HR/Admin)
-      Step 3.3 Active/inactive toggle
-      Step 3.4 Org & hierarchy panel
-      Step 3.5 Attendance panel (read-only + disabled overrides)
-      Step 3.6 Leave panel (read-only)
-      Step 3.7 Route integration from employee list
-
-- [ ] Leave approvals
-- [ ] Attendance management
-- [ ] Holiday management
-- [ ] Organization structure
+- ❌ Notifications (in-app, email)
+- ❌ Leave ledger / audit trail
+- ❌ Compensatory off
+- ❌ Payroll integration
+- ❌ Backend RBAC (permission tables — currently enum roles with frontend permission adapter)
+- ❌ Session management panel (view/revoke devices)
+- ❌ PWA offline support
+- ❌ Background jobs (leave accrual, year-end carry forward, comp-off expiry)
 
 ---
 
-### Station 6 - Admin UI Surface
-Status: ⏸ NOT STARTED
-  Purpose:
-    Ensure no “headless” features exist
-    Catch UX & data bugs early
-    Align LLM understanding with reality
+## 5. Environment Variables
 
-#### Phase 6.1 – Admin Employee Profile UI (VISIBLE)
-
-This is where your current missing piece goes.
-
-Checklist:
-
-- [ ]  Route /admin/employees/:employeeId renders
-- [ ]  Employee profile visible in browser
-- [ ]  Admin-specific layout (denser than employee)
-- [ ]  Profile edit UI rendered (HR/Admin)
-- [ ]  Active/inactive toggle works
-- [ ]  Org & hierarchy panels visible
-- [ ]  Attendance summary visible
-- [ ]  Leave summary visible
-- [ ]  Navigation back to list works
-
-📌 This explicitly solves your concern:
-“employee profile UI wiring is still pending”
-
-#### Phase 6.2 – Admin Leave & Attendance UI
-
-Checklist:
-
-- [ ]  Leave approvals visible
-- [ ]  Approve / reject actions functional
-- [ ]  Attendance overview visible
-- [ ]  Attendance overrides UI wired
-
-#### Phase 6.3 – Admin Org & Holidays UI
-
-Checklist:
-
-- [ ] Holiday CRUD visible
-- [ ] Department / team / designation UI visible
-- [ ] Org structure navigable
-
----
-### Station 7 - Super Admin Dashboard
-Status: ⏸ NOT STARTED
----
-
-### Station 8 - UX, Polish and Hardening
-Status: ⏸ NOT STARTED
-Loading skeletons
-Error boundaries
-Empty states
-Mobile ergonomics
-Accessibility pass
-
----
-### ⏳ Station 9 – PWA Hardening
-Status: ⏸ NOT STARTED
-
-- Offline handling
-- Install prompt
-- Lighthouse optimization
-
----
-
-## 🧠 Context Snapshot (Always Update)
-- Repo: hrms-fe
-- Backend URL: http://localhost:4000
-- Auth: JWT + Refresh Token (cookie)
-- Company isolation via `x-company-id`
-- Lighthouse optimization (at end)
-
-Authorization strategy:
-
-* Frontend uses permission abstraction
-* Backend still uses enum roles (temporary)
-* RBAC migration planned after dashboard completion
-
-Last Updated: Station 5 Phase 2 – Authorization Refactor Planned
-
-
-
-
-
-
-
-
-
-
-### test design template 
+### Backend (.env)
 ```
-import { Box } from '@mui/material'
-import Button from '../components/ui/Button/Button'
-import Card from '../components/ui/Card/Card'
-import Container from '../components/ui/Container/Container'
-import Modal from '../components/ui/Modal/Modal'
-import Typography from '../components/ui/Typography/Typography'
-import Form from '../components/ui/Form/Form'
-import Table from '../components/ui/Table/Table'
-import { useState } from 'react'
-
-const DesignSystemPreview = () => {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <Container>
-      <Typography variant="h5" mb={2}>
-        Design System Preview
-      </Typography>
-
-      <Button variant="contained" onClick={() => setOpen(true)}>
-        Open Modal
-      </Button>
-
-      <Box mt={3}>
-        <Card
-          header={<Typography fontWeight={600}>Card Header</Typography>}
-          footer={<Typography variant="caption">Card Footer</Typography>}
-          sx={{ p: 'var(--space-4)' }}
-        >
-          <Typography>
-            This card uses only tokens + theme.
-          </Typography>
-        </Card>
-      </Box>
-
-      <Box mt={4}>
-        <Form>
-          <Button variant="outlined">Submit</Button>
-        </Form>
-      </Box>
-
-      <Box mt={4}>
-        <Table
-          headers={['Name', 'Role']}
-          rows={[
-            ['Alice', 'HR'],
-            ['Bob', 'Employee'],
-          ]}
-        />
-      </Box>
-
-      <Modal open={open} onClose={() => setOpen(false)}>
-        <Typography>Modal Content</Typography>
-      </Modal>
-    </Container>
-  )
-}
-
-export default DesignSystemPreview
+DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
+DB_NAME=dbname
+DB_USER=user
+DB_PASSWORD=pass
+DB_PORT=5432
+API_PORT=4000
+JWT_ACCESS_SECRET=secret1
+JWT_REFRESH_SECRET=secret2
 ```
+
+### Frontend (.env)
+```
+VITE_API_BASE_URL=http://localhost:4000
+```
+
+---
+
+## 6. Seed Accounts (All password: ChangeMe@123)
+
+| Email | Role | Employee |
+|---|---|---|
+| admin@phibonacci.com | COMPANY_ADMIN | PhiAdmin |
+| hr@phibonacci.com | HR | Nidhi Aggarwal |
+| ravi@phibonacci.com | EMPLOYEE | Ravi Kant Sharma (CTO) |
+| ram@phibonacci.com | EMPLOYEE | Ram Thakkar (reports to Ravi) |
+| anubhaw@phibonacci.com | EMPLOYEE | Anubhaw Dwivedi (reports to Ram) |
+| sanket@phibonacci.com | EMPLOYEE | Sanket Barot (reports to Ravi) |

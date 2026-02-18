@@ -37,6 +37,8 @@ export interface LeaveRequest {
   toDate: string
   durationType: LeaveDurationType
   durationValue: number
+  startTime: string | null
+  endTime: string | null
   reason: string | null
   status: LeaveRequestStatus
   approvedById: string | null
@@ -49,7 +51,9 @@ export interface ApplyLeaveRequest {
   fromDate: string
   toDate: string
   durationType: LeaveDurationType
-  durationValue: number
+  slot?: string       // "FIRST_HALF"|"SECOND_HALF"|"Q1"|"Q2"|"Q3"|"Q4"
+  startTime?: string  // "HH:MM" — for HOURLY
+  endTime?: string    // "HH:MM" — for HOURLY
   reason?: string
 }
 
@@ -67,6 +71,8 @@ export interface LeaveTodayEmployee {
   team: string | null
   leaveType: string
   durationType: LeaveDurationType
+  startTime: string | null
+  endTime: string | null
 }
 
 export interface LeaveTodayResponse {

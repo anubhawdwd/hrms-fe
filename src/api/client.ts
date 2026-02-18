@@ -16,6 +16,16 @@ export const apiClient = axios.create({
   },
 })
 
+// Separate axios instance for auth calls — NO interceptors
+export const authClient = axios.create({
+  baseURL: API_BASE,
+  timeout: 15000,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
 // ─── In-memory token + company store ───
 let accessToken: string | null = null
 let companyId: string | null = null
@@ -23,16 +33,14 @@ let companyId: string | null = null
 export const setToken = (token: string | null) => {
   accessToken = token
 }
-
 export const getToken = (): string | null => accessToken
 
 export const setCompanyId = (id: string | null) => {
   companyId = id
 }
-
 export const getCompanyId = (): string | null => companyId
 
-// ─── Request interceptor ───
+// ─── Request interceptor: attach token + companyId ───
 apiClient.interceptors.request.use((config) => {
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`
@@ -44,6 +52,7 @@ apiClient.interceptors.request.use((config) => {
 })
 
 // ─── Response interceptor: 401 → refresh → retry ───
+// ONLY for apiClient, NOT authClient
 let isRefreshing = false
 let failedQueue: {
   resolve: (token: string) => void
@@ -62,7 +71,19 @@ apiClient.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config
+
+    // Don't intercept non-401 or already-retried requests
     if (error.response?.status !== 401 || original._retry) {
+      return Promise.reject(error)
+    }
+
+    // Don't intercept auth endpoints — they handle their own errors
+    const url = original.url || ''
+    if (
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/login') ||
+      url.includes('/auth/logout')
+    ) {
       return Promise.reject(error)
     }
 
@@ -83,12 +104,8 @@ apiClient.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data } = await axios.post(
-        `${API_BASE}/api/auth/refresh`,
-        {},
-        { withCredentials: true }
-      )
-
+      // Use authClient (no interceptors) to avoid recursive loop
+      const { data } = await authClient.post('/api/auth/refresh')
       const newToken = data.accessToken
       setToken(newToken)
       processQueue(null, newToken)
@@ -98,7 +115,8 @@ apiClient.interceptors.response.use(
       processQueue(refreshError, null)
       setToken(null)
       setCompanyId(null)
-      window.location.href = '/'
+      // Do NOT reload the page — let Redux handle it
+      // The component tree will react to clearAuth()
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false
