@@ -38,8 +38,27 @@ npm run dev
 
 # DB viewer
 # Adminer at localhost:8080
-```
 
+# cloudflare tunneling 
+```
+#### cloudflare tunneling
+install cloudflare
+```bash
+# macOS/Linux
+brew install cloudflared
+
+# Windows (PowerShell)
+winget install Cloudflare.cloudflared
+
+# replace localhost - port with yours
+cloudflared tunnel --url http://localhost:5173
+
+#take url and replace cors in backend and vite.config.ts and .env in fe 
+
+# mostly not required for our purose but if not working then login
+cloudflared tunnel login
+
+```
 ---
 
 ## 2. Backend Architecture
