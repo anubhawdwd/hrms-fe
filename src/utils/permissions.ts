@@ -1,6 +1,6 @@
 // src/utils/permissions.ts
 
-import type { UserRole } from '../modules/auth/types'
+import type { UserRole } from '../types/auth.types'
 
 /**
  * Namespaced permission model

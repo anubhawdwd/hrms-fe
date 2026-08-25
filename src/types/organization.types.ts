@@ -26,5 +26,22 @@ export interface OfficeLocation {
   latitude: number
   longitude: number
   radiusM: number
+  geoFencingEnabled?: boolean
   isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SetOfficeLocationPayload {
+  latitude: number
+  longitude: number
+  radiusM: number
+  geoFencingEnabled?: boolean
+}
+
+export interface UpdateOfficeLocationPayload {
+  latitude?: number
+  longitude?: number
+  radiusM?: number
+  geoFencingEnabled?: boolean
 }

@@ -16,6 +16,7 @@ export default defineConfig({
     port: 5173,
     allowedHosts: [
       "tender-employ-hampton-seeing.trycloudflare.com",
+      "192.168.1.185"
     ]
   },
   plugins: [

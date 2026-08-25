@@ -5,7 +5,9 @@ import {
   FormControlLabel,
   Switch,
   Chip,
+  Button,
 } from '@mui/material'
+import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import { useNavigate } from 'react-router-dom'
 import { useEmployeeList } from '../hooks/useEmployee'
 import DataTable from '../components/DataTable'
@@ -27,16 +29,31 @@ const AdminEmployeeList = () => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2,
           mb: 3,
         }}
       >
-        <Typography variant="h5">Employees</Typography>
-        <FormControlLabel
-          control={
-            <Switch checked={showInactive} onChange={toggleInactive} />
-          }
-          label="Show inactive"
-        />
+        <Typography variant="h5" fontWeight={700}>
+          Employees ({employees.length})
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch checked={showInactive} onChange={toggleInactive} />
+            }
+            label="Show inactive"
+          />
+
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={() => navigate('/admin/employees/new')}
+          >
+            Onboard Employee
+          </Button>
+        </Box>
       </Box>
 
       <DataTable
@@ -45,13 +62,13 @@ const AdminEmployeeList = () => {
         columns={[
           {
             label: 'Code',
-            render: (row) => row.employeeCode,
+            render: (row) => `#${row.employeeCode}`,
           },
           {
             label: 'Name',
             render: (row) => (
               <Box
-                sx={{ cursor: 'pointer', color: 'primary.main' }}
+                sx={{ cursor: 'pointer', color: 'primary.main', fontWeight: 600 }}
                 onClick={() =>
                   navigate(`/admin/employees/${row.id}`)
                 }

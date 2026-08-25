@@ -5,6 +5,8 @@ import type {
   Team,
   Designation,
   OfficeLocation,
+  SetOfficeLocationPayload,
+  UpdateOfficeLocationPayload,
 } from '../types/organization.types'
 
 export const organizationApi = {
@@ -64,6 +66,26 @@ export const organizationApi = {
   getOfficeLocation: async (): Promise<OfficeLocation | null> => {
     const { data } = await apiClient.get<OfficeLocation>(
       '/api/organization/office-location'
+    )
+    return data
+  },
+
+  setOfficeLocation: async (
+    payload: SetOfficeLocationPayload
+  ): Promise<OfficeLocation> => {
+    const { data } = await apiClient.post<OfficeLocation>(
+      '/api/organization/office-location',
+      payload
+    )
+    return data
+  },
+
+  updateOfficeLocation: async (
+    payload: UpdateOfficeLocationPayload
+  ): Promise<OfficeLocation> => {
+    const { data } = await apiClient.patch<OfficeLocation>(
+      '/api/organization/office-location',
+      payload
     )
     return data
   },

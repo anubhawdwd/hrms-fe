@@ -1,6 +1,7 @@
 // src/api/employee.api.ts
 import { apiClient } from './client'
 import type {
+  CreateEmployeePayload,
   EmployeeDetail,
   EmployeeListItem,
 } from '../types/employee.types'
@@ -16,6 +17,16 @@ export const employeeApi = {
   getById: async (id: string): Promise<EmployeeDetail> => {
     const { data } = await apiClient.get<EmployeeDetail>(
       `/api/employees/${id}`
+    )
+    return data
+  },
+
+  create: async (
+    payload: CreateEmployeePayload
+  ): Promise<EmployeeListItem> => {
+    const { data } = await apiClient.post<EmployeeListItem>(
+      '/api/employees/',
+      payload
     )
     return data
   },

@@ -41,6 +41,19 @@ export const leaveApi = {
     return data
   },
 
+  getApprovedRequests: async (): Promise<
+    (LeaveRequest & {
+      employee: { id: string; displayName: string; designation: { name: string } }
+    })[]
+  > => {
+    const { data } = await apiClient.get<
+      (LeaveRequest & {
+        employee: { id: string; displayName: string; designation: { name: string } }
+      })[]
+    >('/api/leave/requests/approved')
+    return data
+  },
+
   cancel: async (requestId: string): Promise<LeaveRequest> => {
     const { data } = await apiClient.patch<LeaveRequest>(
       `/api/leave/requests/${requestId}/cancel`

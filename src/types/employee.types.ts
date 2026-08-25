@@ -41,3 +41,16 @@ export interface EmployeeHierarchy {
   peers: EmployeeListItem[]
   reportees: EmployeeListItem[]
 }
+export interface CreateEmployeePayload {
+  userId: string
+  designationId: string
+  teamId?: string
+  managerId?: string
+  firstName: string
+  middleName?: string
+  lastName: string
+  displayName?: string
+  dateOfBirth?: string
+  joiningDate: string
+  isProbation?: boolean
+}
