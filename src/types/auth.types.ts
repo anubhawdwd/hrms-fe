@@ -17,7 +17,10 @@ export interface LoginResponse {
   user: {
     id: string
     email: string
+    role?: UserRole
     companyId: string
+    geoFencingEnabled?: boolean
+    mustChangePassword?: boolean
   }
 }
 
@@ -26,8 +29,15 @@ export interface MeResponse {
   email: string
   role: UserRole
   companyId: string
+  geoFencingEnabled?: boolean
+  mustChangePassword?: boolean
 }
 
 export interface RefreshResponse {
   accessToken: string
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
 }

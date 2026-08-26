@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { attendanceApi } from '../api/attendance.api'
 import { getCurrentLocation } from '../utils/geo'
 import { mapGeoErrorToAppError } from '../utils/geoPolicy'
+import { useUser } from './useAuth'
 import type {
   AttendanceCheckResponse,
   AttendanceDay,
@@ -12,18 +13,25 @@ export const useCheckIn = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AttendanceCheckResponse | null>(null)
+  const user = useUser()
 
   const checkIn = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const coords = await getCurrentLocation()
-      const response = await attendanceApi.checkIn({
-        source: 'WEB',
-        location: {
+      let location: { latitude: number; longitude: number } | undefined
+
+      if (user?.geoFencingEnabled) {
+        const coords = await getCurrentLocation()
+        location = {
           latitude: coords.latitude,
           longitude: coords.longitude,
-        },
+        }
+      }
+
+      const response = await attendanceApi.checkIn({
+        source: 'WEB',
+        ...(location && { location }),
       })
       setResult(response)
       return response
@@ -36,7 +44,7 @@ export const useCheckIn = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.geoFencingEnabled])
 
   return { checkIn, loading, error, result }
 }
@@ -45,18 +53,25 @@ export const useCheckOut = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AttendanceCheckResponse | null>(null)
+  const user = useUser()
 
   const checkOut = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const coords = await getCurrentLocation()
-      const response = await attendanceApi.checkOut({
-        source: 'WEB',
-        location: {
+      let location: { latitude: number; longitude: number } | undefined
+
+      if (user?.geoFencingEnabled) {
+        const coords = await getCurrentLocation()
+        location = {
           latitude: coords.latitude,
           longitude: coords.longitude,
-        },
+        }
+      }
+
+      const response = await attendanceApi.checkOut({
+        source: 'WEB',
+        ...(location && { location }),
       })
       setResult(response)
       return response
@@ -69,7 +84,7 @@ export const useCheckOut = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.geoFencingEnabled])
 
   return { checkOut, loading, error, result }
 }

@@ -1,18 +1,106 @@
 // src/components/AppShell.tsx
-import { Outlet, useNavigate } from 'react-router-dom'
-import { Box, AppBar, Toolbar, IconButton, Typography } from '@mui/material'
+import React, { useState } from 'react'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import {
+  Box,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Typography,
+  Chip,
+  Button,
+  Stack,
+  Avatar,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+} from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
+import MenuIcon from '@mui/icons-material/Menu'
+import CloseIcon from '@mui/icons-material/Close'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import HowToRegIcon from '@mui/icons-material/HowToReg'
+import CelebrationIcon from '@mui/icons-material/Celebration'
+import BusinessIcon from '@mui/icons-material/Business'
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import { useDispatch } from 'react-redux'
 import { authApi } from '../api/auth.api'
 import { clearAuth } from '../store/auth.slice'
 import { useUser } from '../hooks/useAuth'
+import { getDashboardRoute } from '../utils/dashboard'
+import ChangePasswordModal from './ChangePasswordModal'
+
+interface NavItem {
+  label: string
+  path: string
+  icon?: React.ReactNode
+}
+
+function getInitials(email?: string): string {
+  if (!email) return 'U'
+  const namePart = email.split('@')[0] || ''
+  const parts = namePart.split(/[._-]/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return (namePart.slice(0, 2) || 'U').toUpperCase()
+}
+
+function formatRole(role?: string): string {
+  if (!role) return ''
+  switch (role) {
+    case 'COMPANY_ADMIN':
+      return 'Admin'
+    case 'SUPER_ADMIN':
+      return 'Super Admin'
+    case 'HR':
+      return 'HR Manager'
+    case 'EMPLOYEE':
+      return 'Employee'
+    default:
+      return role
+  }
+}
+
+function getCompanyName(email?: string): string {
+  if (!email) return 'Company Workspace'
+  const domain = email.split('@')[1] || ''
+  const base = domain.split('.')[0] || ''
+  if (!base) return 'Company Workspace'
+  const formatted = base.charAt(0).toUpperCase() + base.slice(1)
+  return `${formatted} Learning`
+}
 
 const AppShell = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const location = useLocation()
   const user = useUser()
 
+  // User Profile Dropdown Menu State
+  const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
+  const isUserMenuOpen = Boolean(userMenuAnchor)
+
+  // Mobile Drawer State
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget)
+  }
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null)
+  }
+
   const handleLogout = async () => {
+    handleUserMenuClose()
+    setMobileDrawerOpen(false)
     try {
       await authApi.logout()
     } catch {
@@ -22,36 +110,406 @@ const AppShell = () => {
     navigate('/', { replace: true })
   }
 
-  return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <AppBar position="static" elevation={1}>
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            HRMS
-          </Typography>
+  const handleHomeClick = () => {
+    const homeRoute = getDashboardRoute(user?.role)
+    navigate(homeRoute)
+  }
 
-          {user && (
-            <Typography variant="body2" sx={{ mr: 2 }}>
-              {user.email}
+  const handleNavClick = (path: string) => {
+    navigate(path)
+    setMobileDrawerOpen(false)
+  }
+
+  // Define minimal role-aware navigation items (Dashboard, Attendance, Holidays for HR/Admin)
+  const getNavItems = (): NavItem[] => {
+    if (!user) return []
+
+    if (user.role === 'COMPANY_ADMIN' || user.role === 'HR') {
+      return [
+        { label: 'Dashboard', path: '/admin', icon: <DashboardIcon fontSize="small" /> },
+        { label: 'Attendance', path: '/admin/attendance', icon: <HowToRegIcon fontSize="small" /> },
+        { label: 'Holidays', path: '/admin/holidays', icon: <CelebrationIcon fontSize="small" /> },
+      ]
+    }
+
+    if (user.role === 'EMPLOYEE') {
+      return [
+        { label: 'Dashboard', path: '/employee', icon: <DashboardIcon fontSize="small" /> },
+      ]
+    }
+
+    if (user.role === 'SUPER_ADMIN') {
+      return [
+        { label: 'Companies', path: '/super-admin', icon: <BusinessIcon fontSize="small" /> },
+      ]
+    }
+
+    return []
+  }
+
+  const navItems = getNavItems()
+
+  const isNavActive = (itemPath: string) => {
+    if (itemPath === '/admin' || itemPath === '/employee' || itemPath === '/super-admin') {
+      return location.pathname === itemPath
+    }
+    return location.pathname.startsWith(itemPath)
+  }
+
+  const companyName = getCompanyName(user?.email)
+  const userInitials = getInitials(user?.email)
+  const roleLabel = formatRole(user?.role)
+
+  return (
+    <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'grey.50' }}>
+      {/* Primary Top AppBar — standard natural zIndex so modal Drawer cleanly stacks above */}
+      <AppBar position="sticky" elevation={1}>
+        <Toolbar sx={{ justifyContent: 'space-between', gap: 2, minHeight: { xs: 56, sm: 64 }, px: { xs: 1.5, sm: 3 } }}>
+          {/* Left: Brand + Dynamic Company Name */}
+          <Box
+            component="div"
+            role="button"
+            tabIndex={0}
+            onClick={handleHomeClick}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleHomeClick()
+              }
+            }}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              cursor: 'pointer',
+              userSelect: 'none',
+              py: 0.5,
+              px: 1,
+              borderRadius: 1.5,
+              transition: 'background-color 0.15s ease',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.15)',
+              },
+              '&:focus-visible': {
+                outline: '2px solid white',
+                outlineOffset: '2px',
+              },
+            }}
+            aria-label="HRMS Home"
+          >
+            <Typography
+              variant="h6"
+              fontWeight={800}
+              sx={{
+                letterSpacing: 0.5,
+                lineHeight: 1.1,
+                color: 'inherit',
+              }}
+            >
+              HRMS
             </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontSize: '0.72rem',
+                fontWeight: 500,
+                opacity: 0.85,
+                lineHeight: 1.2,
+                letterSpacing: 0.2,
+                color: 'inherit',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {companyName}
+            </Typography>
+          </Box>
+
+          {/* Center: Desktop Navigation Links (Dashboard, Attendance, Holidays) */}
+          {navItems.length > 0 && (
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                alignItems: 'center',
+              }}
+            >
+              {navItems.map((item) => {
+                const active = isNavActive(item.path)
+                return (
+                  <Button
+                    key={item.path}
+                    onClick={() => handleNavClick(item.path)}
+                    startIcon={item.icon}
+                    size="small"
+                    sx={{
+                      color: 'inherit',
+                      textTransform: 'none',
+                      fontWeight: active ? 700 : 500,
+                      px: 1.75,
+                      py: 0.75,
+                      borderRadius: 1.5,
+                      bgcolor: active ? 'rgba(255, 255, 255, 0.22)' : 'transparent',
+                      borderBottom: active ? '2px solid white' : '2px solid transparent',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.15)',
+                      },
+                    }}
+                  >
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </Stack>
           )}
 
-          <IconButton color="inherit" onClick={handleLogout}>
-            <LogoutIcon />
-          </IconButton>
+          {/* Right: User Profile Control + Mobile Menu Button */}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* Desktop / Mobile User Profile Button */}
+            {user && (
+              <Button
+                onClick={handleUserMenuOpen}
+                aria-controls={isUserMenuOpen ? 'user-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={isUserMenuOpen ? 'true' : undefined}
+                aria-label="User profile menu"
+                sx={{
+                  color: 'inherit',
+                  textTransform: 'none',
+                  p: 0.5,
+                  borderRadius: 2,
+                  bgcolor: isUserMenuOpen ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+                }}
+              >
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 0.5 }}>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      bgcolor: 'secondary.main',
+                      color: 'secondary.contrastText',
+                    }}
+                  >
+                    {userInitials}
+                  </Avatar>
+                  <Typography
+                    variant="body2"
+                    fontWeight={600}
+                    sx={{
+                      display: { xs: 'none', sm: 'inline' },
+                      color: 'inherit',
+                    }}
+                  >
+                    {roleLabel}
+                  </Typography>
+                  <ArrowDropDownIcon fontSize="small" sx={{ opacity: 0.8 }} />
+                </Stack>
+              </Button>
+            )}
+
+            {/* Mobile Hamburger Menu Button */}
+            {navItems.length > 0 && (
+              <IconButton
+                color="inherit"
+                onClick={() => setMobileDrawerOpen((prev) => !prev)}
+                aria-label={mobileDrawerOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={mobileDrawerOpen}
+                sx={{
+                  display: { xs: 'flex', md: 'none' },
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+                }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
+          </Stack>
         </Toolbar>
       </AppBar>
 
+      {/* User Profile Popover / Dropdown Menu */}
+      <Menu
+        id="user-menu"
+        anchorEl={userMenuAnchor}
+        open={isUserMenuOpen}
+        onClose={handleUserMenuClose}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          elevation: 3,
+          sx: {
+            minWidth: 240,
+            borderRadius: 2,
+            mt: 1,
+            p: 0.5,
+          },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" mb={1}>
+            <Avatar
+              sx={{
+                width: 38,
+                height: 38,
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                bgcolor: 'primary.main',
+              }}
+            >
+              {userInitials}
+            </Avatar>
+            <Box sx={{ overflow: 'hidden' }}>
+              <Typography variant="subtitle2" fontWeight={700} noWrap>
+                {roleLabel}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap display="block">
+                {user?.email}
+              </Typography>
+            </Box>
+          </Stack>
+          <Chip
+            label={companyName}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', height: 20 }}
+          />
+        </Box>
+
+        <Divider sx={{ my: 0.5 }} />
+
+        <MenuItem onClick={handleLogout} sx={{ color: 'error.main', py: 1 }}>
+          <ListItemIcon sx={{ color: 'error.main' }}>
+            <LogoutIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Sign Out" primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }} />
+        </MenuItem>
+      </Menu>
+
+      {/* Mobile Navigation Drawer — Modal layer with backdrop covering whole viewport */}
+      <Drawer
+        variant="temporary"
+        anchor="right"
+        open={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        ModalProps={{
+          keepMounted: true, // Improved mobile performance
+        }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            width: { xs: 280, sm: 320 },
+            boxSizing: 'border-box',
+            p: 2.5,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: 8,
+          },
+          '& .MuiBackdrop-root': {
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          },
+        }}
+        aria-label="Navigation Menu"
+      >
+        <Box>
+          {/* Drawer Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800} color="primary">
+                HRMS
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {companyName}
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setMobileDrawerOpen(false)} size="small" aria-label="Close navigation menu">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Navigation Links */}
+          <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, mb: 1, display: 'block', letterSpacing: 0.5 }}>
+            NAVIGATION
+          </Typography>
+          <List sx={{ p: 0 }}>
+            {navItems.map((item) => {
+              const active = isNavActive(item.path)
+              return (
+                <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+                  <ListItemButton
+                    onClick={() => handleNavClick(item.path)}
+                    selected={active}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1,
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.light',
+                        color: 'primary.contrastText',
+                        fontWeight: 700,
+                        '& .MuiListItemIcon-root': { color: 'inherit' },
+                        '&:hover': { bgcolor: 'primary.main' },
+                      },
+                    }}
+                  >
+                    {item.icon && <ListItemIcon sx={{ minWidth: 36, color: active ? 'inherit' : 'text.secondary' }}>{item.icon}</ListItemIcon>}
+                    <ListItemText primary={item.label} primaryTypographyProps={{ variant: 'body2', fontWeight: active ? 700 : 500 }} />
+                  </ListItemButton>
+                </ListItem>
+              )
+            })}
+          </List>
+        </Box>
+
+        {/* Drawer Footer / User info + Logout */}
+        <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+            <Avatar sx={{ width: 36, height: 36, fontSize: '0.85rem', fontWeight: 700, bgcolor: 'primary.main' }}>
+              {userInitials}
+            </Avatar>
+            <Box sx={{ overflow: 'hidden' }}>
+              <Typography variant="body2" fontWeight={700} noWrap>
+                {roleLabel}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" noWrap display="block">
+                {user?.email}
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Button
+            variant="outlined"
+            color="error"
+            fullWidth
+            startIcon={<LogoutIcon />}
+            onClick={handleLogout}
+            size="small"
+          >
+            Sign Out
+          </Button>
+        </Box>
+      </Drawer>
+
+      {/* Main Content Area */}
       <Box
         component="main"
         sx={{
           flex: 1,
+          maxWidth: 1280,
+          width: '100%',
+          mx: 'auto',
           px: { xs: 2, sm: 3, md: 4 },
           py: 3,
         }}
       >
         <Outlet />
       </Box>
+
+      {/* Blocking Change Password modal for first-time / temp-password login */}
+      <ChangePasswordModal />
     </Box>
   )
 }

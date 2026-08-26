@@ -15,23 +15,21 @@ import {
   Divider,
   Stack,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
 import SaveIcon from '@mui/icons-material/Save'
-import LocationOnIcon from '@mui/icons-material/LocationOn'
-import SecurityIcon from '@mui/icons-material/Security'
-import PublicIcon from '@mui/icons-material/Public'
-import { useNavigate } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
 import toast from 'react-hot-toast'
 import { organizationApi } from '../api/organization.api'
 import { getCurrentLocation } from '../utils/geo'
+import { updateGeoFencingEnabled } from '../store/auth.slice'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 
 const RADIUS_PRESETS = [50, 100, 200, 500, 1000, 5000]
 
 const AdminGeoSettings = () => {
-  const navigate = useNavigate()
+    const dispatch = useDispatch()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -42,8 +40,8 @@ const AdminGeoSettings = () => {
   const [latitude, setLatitude] = useState<string>('')
   const [longitude, setLongitude] = useState<string>('')
   const [radiusM, setRadiusM] = useState<string>('200')
-  const [geoFencingEnabled, setGeoFencingEnabled] = useState<boolean>(true)
-  const [officeId, setOfficeId] = useState<string | null>(null)
+  const [geoFencingEnabled, setGeoFencingEnabled] = useState<boolean>(false)
+  // officeId managed on backend
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
   // Load existing office location
@@ -53,11 +51,11 @@ const AdminGeoSettings = () => {
     try {
       const office = await organizationApi.getOfficeLocation()
       if (office) {
-        setOfficeId(office.id)
+        // loaded
         setLatitude(office.latitude.toString())
         setLongitude(office.longitude.toString())
         setRadiusM(office.radiusM.toString())
-        setGeoFencingEnabled(office.geoFencingEnabled ?? true)
+        setGeoFencingEnabled(office.geoFencingEnabled ?? false)
         if (office.updatedAt) {
           setLastUpdated(new Date(office.updatedAt).toLocaleString())
         }
@@ -66,7 +64,7 @@ const AdminGeoSettings = () => {
         setLatitude('23.052228')
         setLongitude('72.493801')
         setRadiusM('200')
-        setGeoFencingEnabled(true)
+        setGeoFencingEnabled(false)
       }
     } catch (err: any) {
       setError(
@@ -96,28 +94,38 @@ const AdminGeoSettings = () => {
     }
   }
 
-  // Quick toggle switch change
+  // Quick toggle switch change with immediate backend persistence and Redux state update
   const handleToggleGeoFencing = async (checked: boolean) => {
     setGeoFencingEnabled(checked)
 
-    // If an office is already configured, update the backend immediately
-    if (officeId) {
-      try {
-        await organizationApi.updateOfficeLocation({
-          geoFencingEnabled: checked,
-        })
-        toast.success(
-          checked
-            ? 'Geo-fencing enabled (radius check active)'
-            : 'Geo-fencing disabled (check-in allowed anywhere)'
-        )
-      } catch (err: any) {
-        toast.error(
-          err?.response?.data?.message || 'Failed to update toggle state'
-        )
-        // Revert on failure
-        setGeoFencingEnabled(!checked)
+    try {
+      const result = await organizationApi.updateOfficeLocation({
+        geoFencingEnabled: checked,
+      })
+      if (result) {
+        // saved
+        if (result.latitude) setLatitude(result.latitude.toString())
+        if (result.longitude) setLongitude(result.longitude.toString())
+        if (result.radiusM) setRadiusM(result.radiusM.toString())
+        if (result.updatedAt) {
+          setLastUpdated(new Date(result.updatedAt).toLocaleString())
+        }
       }
+
+      // Sync active Redux auth state immediately so check-in/out reflects change instantly
+      dispatch(updateGeoFencingEnabled(checked))
+
+      toast.success(
+        checked
+          ? 'Geo-fencing enabled (radius check active)'
+          : 'Geo-fencing disabled (check-in allowed anywhere)'
+      )
+    } catch (err: any) {
+      toast.error(
+        err?.response?.data?.message || 'Failed to update toggle state'
+      )
+      // Revert on failure
+      setGeoFencingEnabled(!checked)
     }
   }
 
@@ -150,10 +158,14 @@ const AdminGeoSettings = () => {
         radiusM: radNum,
         geoFencingEnabled,
       })
-      setOfficeId(result.id)
+      // saved
       if (result.updatedAt) {
         setLastUpdated(new Date(result.updatedAt).toLocaleString())
       }
+
+      // Sync active Redux auth state
+      dispatch(updateGeoFencingEnabled(geoFencingEnabled))
+
       toast.success('Office location and geo-settings saved successfully!')
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save settings')
@@ -167,41 +179,27 @@ const AdminGeoSettings = () => {
 
   return (
     <Box sx={{ maxWidth: 1000, mx: 'auto', pb: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/admin')}
-          sx={{ mb: 1.5 }}
-          size="small"
-        >
-          Back to Admin Dashboard
-        </Button>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <LocationOnIcon color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Geo-Fenced Attendance Settings
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Configure office coordinates and toggle company-wide location enforcement for check-in & check-out.
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Geo-Fenced Attendance Settings"
+        subtitle="Configure office coordinates and toggle company-wide location enforcement for check-in & check-out"
+        backTo="/admin"
+        backLabel="Back to Dashboard"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Geo Settings' },
+        ]}
+      />
 
-      {/* Main Grid */}
       <Grid container spacing={3}>
-        {/* Toggle Policy Card */}
+        {/* Toggle Switch Banner Card */}
         <Grid size={{ xs: 12 }}>
           <Paper
             elevation={2}
             sx={{
               p: 3,
               borderRadius: 2,
-              border: '1px solid',
-              borderColor: geoFencingEnabled ? 'primary.light' : 'divider',
-              bgcolor: geoFencingEnabled ? 'primary.50' : 'background.paper',
+              borderLeft: 6,
+              borderColor: geoFencingEnabled ? 'primary.main' : 'text.disabled',
             }}
           >
             <Box
@@ -213,31 +211,23 @@ const AdminGeoSettings = () => {
                 gap: 2,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {geoFencingEnabled ? (
-                  <SecurityIcon color="primary" sx={{ fontSize: 40 }} />
-                ) : (
-                  <PublicIcon color="action" sx={{ fontSize: 40 }} />
-                )}
-                <Box>
-                  <Typography variant="h6" fontWeight={600}>
-                    Location-Based Check-in / Check-out
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {geoFencingEnabled
-                      ? 'Employees must be within the configured office perimeter radius to check in or out.'
-                      : 'Geo-fencing is disabled. Employees can check in and check out from anywhere.'}
-                  </Typography>
-                </Box>
+              <Box>
+                <Typography variant="h6" fontWeight={700}>
+                  Company-Wide Geo-Fencing Enforcement
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  When enabled, employees must be physically within the office perimeter to check in or out.
+                </Typography>
               </Box>
 
               <Stack direction="row" spacing={1.5} alignItems="center">
-                <Chip
-                  label={geoFencingEnabled ? 'Enforced' : 'Disabled / Anywhere'}
-                  color={geoFencingEnabled ? 'primary' : 'default'}
-                  size="medium"
-                  sx={{ fontWeight: 600 }}
-                />
+                <Typography
+                  variant="body2"
+                  fontWeight={600}
+                  color={geoFencingEnabled ? 'primary.main' : 'text.secondary'}
+                >
+                  {geoFencingEnabled ? 'ENABLED' : 'DISABLED'}
+                </Typography>
                 <FormControlLabel
                   control={
                     <Switch

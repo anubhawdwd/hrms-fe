@@ -25,6 +25,7 @@ import dayjs from 'dayjs'
 import { apiClient } from '../api/client'
 import { leaveApi } from '../api/leave.api'
 import type { LeaveRequest } from '../types/leave.types'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
 
@@ -263,15 +264,16 @@ const AdminLeaveApprovals = () => {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', pb: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>
-          Leave Approvals
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Review and manage employee leave requests
-        </Typography>
-      </Box>
+      <PageHeader
+        title="Leave Approvals"
+        subtitle="Review, approve, or reject employee leave requests and audit history"
+        backTo="/admin"
+        backLabel="Back to Dashboard"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Leave Approvals' },
+        ]}
+      />
 
       {/* Tabs + Content */}
       <Paper sx={{ borderRadius: '16px', overflow: 'hidden', mb: 3 }}>

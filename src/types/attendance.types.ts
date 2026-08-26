@@ -4,7 +4,7 @@
  */
 export interface AttendanceCheckRequest {
   source: 'WEB' | 'PWA'
-  location: {
+  location?: {
     latitude: number
     longitude: number
   }

@@ -1,3 +1,4 @@
+// src/pages/SuperAdminDashboard.tsx
 import { useCallback, useEffect, useState } from 'react'
 import {
   Box,
@@ -11,6 +12,7 @@ import {
 import toast from 'react-hot-toast'
 import { apiClient } from '../api/client'
 import type { Company } from '../types/company.types'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 
 const SuperAdminDashboard = () => {
@@ -60,15 +62,16 @@ const SuperAdminDashboard = () => {
 
   return (
     <Box>
-      <Typography variant="h5" mb={3}>
-        Super Admin — Companies
-      </Typography>
+      <PageHeader
+        title="Super Admin — Companies"
+        subtitle="Manage enterprise tenant companies and onboard new company workspaces"
+      />
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           Onboard New Company
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
             label="Company Name"
             value={name}
@@ -85,12 +88,12 @@ const SuperAdminDashboard = () => {
               creating ? <CircularProgress size={18} /> : null
             }
           >
-            Create
+            Create Company
           </Button>
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, borderRadius: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           All Companies ({companies.length})
         </Typography>

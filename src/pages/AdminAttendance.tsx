@@ -23,7 +23,6 @@ import {
   Card,
   CardContent,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import EditCalendarIcon from '@mui/icons-material/EditCalendar'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
@@ -44,6 +43,7 @@ import type {
   AttendanceDay,
   AttendanceEvent,
 } from '../types/attendance.types'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
 
@@ -252,44 +252,26 @@ const AdminAttendance = () => {
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto', pb: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/admin')}
-          sx={{ mb: 1.5 }}
-          size="small"
-        >
-          Back to Admin Dashboard
-        </Button>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 2,
-          }}
-        >
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Attendance Administration
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Review location violations, adjust employee daily attendance, and record missing punch events.
-            </Typography>
-          </Box>
-
+      <PageHeader
+        title="Attendance Administration"
+        subtitle="Review location violations, adjust employee daily attendance, and record missing punch events"
+        backTo="/admin"
+        backLabel="Back to Dashboard"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Attendance' },
+        ]}
+        action={
           <Button
             variant="outlined"
             startIcon={<SettingsIcon />}
-            onClick={() => navigate('/admin/organization/geo-settings')}
+            onClick={() => navigate('/admin/geo-settings')}
             size="small"
           >
             Geo-Fencing Settings
           </Button>
-        </Box>
-      </Box>
+        }
+      />
 
       {/* Tabs */}
       <Paper elevation={1} sx={{ mb: 3, borderRadius: 2 }}>

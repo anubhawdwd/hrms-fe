@@ -5,6 +5,7 @@ import type {
   LoginResponse,
   MeResponse,
   RefreshResponse,
+  ChangePasswordRequest,
 } from '../types/auth.types'
 
 export const authApi = {
@@ -36,6 +37,14 @@ export const authApi = {
       '/api/auth/refresh'
     )
     setToken(data.accessToken)
+    return data
+  },
+
+  changePassword: async (payload: ChangePasswordRequest): Promise<{ message: string }> => {
+    const { data } = await apiClient.post<{ message: string }>(
+      '/api/auth/change-password',
+      payload
+    )
     return data
   },
 

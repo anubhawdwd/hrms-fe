@@ -21,7 +21,6 @@ import {
   Card,
   CardContent,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import BadgeIcon from '@mui/icons-material/Badge'
@@ -38,6 +37,7 @@ import type { User } from '../types/user.types'
 import type { EmployeeListItem } from '../types/employee.types'
 import type { Department, Team, Designation } from '../types/organization.types'
 import type { AuthProvider, UserRole } from '../types/auth.types'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 
 const STEPS = ['Create User Credentials', 'Setup Employee Profile']
@@ -237,28 +237,17 @@ const AdminCreateEmployee = () => {
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', pb: 4 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/admin/employees')}
-          sx={{ mb: 1.5 }}
-          size="small"
-        >
-          Back to Employee List
-        </Button>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <PersonAddIcon color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              Onboard New Employee
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Create a system user account and configure employee profile, organization hierarchy, and automated leave allocation.
-            </Typography>
-          </Box>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Onboard New Employee"
+        subtitle="Create a system user account and configure employee profile, organization hierarchy, and automated leave allocation"
+        backTo="/admin/employees"
+        backLabel="Back to Employees"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Employees', path: '/admin/employees' },
+          { label: 'Onboard New' },
+        ]}
+      />
 
       {/* Stepper */}
       <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>

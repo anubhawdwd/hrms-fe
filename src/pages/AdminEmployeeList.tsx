@@ -1,7 +1,6 @@
 // src/pages/AdminEmployeeList.tsx
 import {
   Box,
-  Typography,
   FormControlLabel,
   Switch,
   Chip,
@@ -11,6 +10,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import { useNavigate } from 'react-router-dom'
 import { useEmployeeList } from '../hooks/useEmployee'
 import DataTable from '../components/DataTable'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 
@@ -24,37 +24,35 @@ const AdminEmployeeList = () => {
 
   return (
     <Box>
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 2,
-          mb: 3,
-        }}
-      >
-        <Typography variant="h5" fontWeight={700}>
-          Employees ({employees.length})
-        </Typography>
+      <PageHeader
+        title={`Employees (${employees.length})`}
+        subtitle="Company employee directory and lifecycle management"
+        backTo="/admin"
+        backLabel="Back to Dashboard"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Employees' },
+        ]}
+        action={
+          <>
+            <FormControlLabel
+              control={
+                <Switch checked={showInactive} onChange={toggleInactive} size="small" />
+              }
+              label="Show inactive"
+              sx={{ m: 0 }}
+            />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <FormControlLabel
-            control={
-              <Switch checked={showInactive} onChange={toggleInactive} />
-            }
-            label="Show inactive"
-          />
-
-          <Button
-            variant="contained"
-            startIcon={<PersonAddIcon />}
-            onClick={() => navigate('/admin/employees/new')}
-          >
-            Onboard Employee
-          </Button>
-        </Box>
-      </Box>
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={() => navigate('/admin/employees/new')}
+            >
+              Onboard Employee
+            </Button>
+          </>
+        }
+      />
 
       <DataTable
         data={employees}

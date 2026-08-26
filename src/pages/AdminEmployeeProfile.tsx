@@ -1,21 +1,19 @@
 // src/pages/AdminEmployeeProfile.tsx
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   Box,
   Typography,
   Paper,
   Grid,
-  Button,
   Chip,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { useEmployeeById } from '../hooks/useEmployee'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 
 const AdminEmployeeProfile = () => {
   const { employeeId } = useParams<{ employeeId: string }>()
-  const navigate = useNavigate()
   const { employee, loading, error } = useEmployeeById(employeeId)
 
   if (loading) return <LoadingState />
@@ -24,43 +22,50 @@ const AdminEmployeeProfile = () => {
 
   return (
     <Box>
-      <Button
-        startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/admin/employees')}
-        sx={{ mb: 2 }}
-      >
-        Back to list
-      </Button>
-
-      <Typography variant="h5" mb={3}>
-        {employee.displayName}
-      </Typography>
+      <PageHeader
+        title={employee.displayName}
+        subtitle={`${employee.designation.name} • Employee Code: #${employee.employeeCode}`}
+        backTo="/admin/employees"
+        backLabel="Back to Employees"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Employees', path: '/admin/employees' },
+          { label: employee.displayName },
+        ]}
+        action={
+          <Chip
+            label={employee.isActive ? 'Active' : 'Inactive'}
+            color={employee.isActive ? 'success' : 'default'}
+            size="small"
+          />
+        }
+      />
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Profile
+              Profile Details
             </Typography>
-            <Typography>
-              Email: {employee.user.email}
+            <Typography mb={1}>
+              <strong>Email:</strong> {employee.user.email}
             </Typography>
-            <Typography>
-              Code: {employee.employeeCode}
+            <Typography mb={1}>
+              <strong>Code:</strong> #{employee.employeeCode}
             </Typography>
-            <Typography>
-              Designation: {employee.designation.name}
+            <Typography mb={1}>
+              <strong>Designation:</strong> {employee.designation.name}
             </Typography>
-            <Typography>
-              Team: {employee.team?.name ?? '—'}
+            <Typography mb={1}>
+              <strong>Team:</strong> {employee.team?.name ?? '—'}
             </Typography>
-            <Typography>
-              Joined:{' '}
-              {new Date(employee.joiningDate).toLocaleDateString()}
+            <Typography mb={1}>
+              <strong>Joining Date:</strong>{' '}
+              {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : '—'}
             </Typography>
-            <Box mt={1}>
+            <Box mt={2}>
               <Chip
-                label={employee.isActive ? 'Active' : 'Inactive'}
+                label={employee.isActive ? 'Active Status' : 'Inactive Status'}
                 color={employee.isActive ? 'success' : 'default'}
                 size="small"
               />
@@ -79,26 +84,28 @@ const AdminEmployeeProfile = () => {
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="subtitle1" fontWeight={600} mb={2}>
-              Hierarchy
+              Organizational Hierarchy
             </Typography>
 
             <Typography variant="body2" fontWeight={600}>
-              Manager
+              Reporting Manager
             </Typography>
             <Typography mb={2}>
-              {employee.manager?.displayName ?? 'None'}
+              {employee.manager?.displayName ?? 'None (Top of Hierarchy)'}
             </Typography>
 
             <Typography variant="body2" fontWeight={600}>
-              Reportees
+              Direct Reportees
             </Typography>
             {employee.subordinates && employee.subordinates.length > 0 ? (
               employee.subordinates.map((s) => (
-                <Typography key={s.id}>{s.displayName}</Typography>
+                <Typography key={s.id} sx={{ py: 0.5 }}>
+                  • {s.displayName}
+                </Typography>
               ))
             ) : (
               <Typography color="text.secondary">
-                No reportees
+                No direct reportees
               </Typography>
             )}
           </Paper>

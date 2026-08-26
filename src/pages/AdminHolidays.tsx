@@ -14,6 +14,7 @@ import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import { useHolidays } from '../hooks/useLeave'
 import { leaveApi } from '../api/leave.api'
+import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 
 const AdminHolidays = () => {
@@ -56,12 +57,19 @@ const AdminHolidays = () => {
 
   return (
     <Box>
-      <Typography variant="h5" mb={3}>
-        Company Holidays
-      </Typography>
+      <PageHeader
+        title="Company Holidays"
+        subtitle="Manage company annual holiday calendar and non-working days"
+        backTo="/admin"
+        backLabel="Back to Dashboard"
+        breadcrumbs={[
+          { label: 'Admin', path: '/admin' },
+          { label: 'Holidays' },
+        ]}
+      />
 
       {/* Create form */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
           Add Holiday
         </Typography>
@@ -71,6 +79,7 @@ const AdminHolidays = () => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             size="small"
+            sx={{ minWidth: 240 }}
           />
           <TextField
             label="Date"
@@ -88,13 +97,17 @@ const AdminHolidays = () => {
               creating ? <CircularProgress size={18} /> : null
             }
           >
-            Add
+            Add Holiday
           </Button>
         </Box>
       </Paper>
 
       {/* List */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="subtitle1" fontWeight={600} mb={2}>
+          Scheduled Holidays ({holidays.length})
+        </Typography>
+
         {holidays.length === 0 ? (
           <Typography color="text.secondary">
             No holidays configured
@@ -107,7 +120,7 @@ const AdminHolidays = () => {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                py: 1,
+                py: 1.5,
                 borderBottom: '1px solid',
                 borderColor: 'divider',
               }}
@@ -117,13 +130,14 @@ const AdminHolidays = () => {
                   {h.name}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {dayjs(h.date).format('DD MMM YYYY (dddd)')}
+                  {dayjs(h.date).format('DD MMMM YYYY (dddd)')}
                 </Typography>
               </Box>
               <IconButton
                 size="small"
                 color="error"
                 onClick={() => handleDelete(h.id)}
+                aria-label="Delete holiday"
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
