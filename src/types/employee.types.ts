@@ -15,13 +15,15 @@ export interface EmployeeListItem {
 
   userId: string
   companyId: string
+  departmentId?: string | null
   designationId: string
   teamId: string | null
   managerId: string | null
 
   user: { email: string }
-  team: { name: string } | null
-  designation: { name: string }
+  department?: { id: string; name: string } | null
+  team?: { id?: string; name: string } | null
+  designation: { id?: string; name: string }
   manager: { id: string; displayName: string } | null
 }
 
@@ -41,8 +43,10 @@ export interface EmployeeHierarchy {
   peers: EmployeeListItem[]
   reportees: EmployeeListItem[]
 }
+
 export interface CreateEmployeePayload {
   userId: string
+  departmentId?: string
   designationId: string
   teamId?: string
   managerId?: string
@@ -53,4 +57,18 @@ export interface CreateEmployeePayload {
   dateOfBirth?: string
   joiningDate: string
   isProbation?: boolean
+}
+
+export interface UpdateEmployeeAdminPayload {
+  departmentId?: string | null
+  teamId?: string | null
+  designationId?: string
+  firstName?: string
+  middleName?: string | null
+  lastName?: string
+  displayName?: string
+  dateOfBirth?: string | null
+  joiningDate?: string
+  isProbation?: boolean
+  isActive?: boolean
 }

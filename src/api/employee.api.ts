@@ -4,6 +4,7 @@ import type {
   CreateEmployeePayload,
   EmployeeDetail,
   EmployeeListItem,
+  UpdateEmployeeAdminPayload,
 } from '../types/employee.types'
 
 export const employeeApi = {
@@ -34,6 +35,37 @@ export const employeeApi = {
   list: async (): Promise<EmployeeListItem[]> => {
     const { data } = await apiClient.get<EmployeeListItem[]>(
       '/api/employees/'
+    )
+    return data
+  },
+
+  updateAdmin: async (
+    employeeId: string,
+    payload: UpdateEmployeeAdminPayload
+  ): Promise<EmployeeDetail> => {
+    const { data } = await apiClient.put<EmployeeDetail>(
+      `/api/employees/${employeeId}/admin`,
+      payload
+    )
+    return data
+  },
+
+  changeManager: async (
+    employeeId: string,
+    managerId?: string | null
+  ): Promise<EmployeeDetail> => {
+    const { data } = await apiClient.patch<EmployeeDetail>(
+      `/api/employees/${employeeId}/manager`,
+      { managerId: managerId ?? null }
+    )
+    return data
+  },
+
+  deactivate: async (
+    employeeId: string
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(
+      `/api/employees/${employeeId}`
     )
     return data
   },

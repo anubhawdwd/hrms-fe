@@ -4,6 +4,8 @@ import type {
   LeaveType,
   LeaveBalance,
   LeaveRequest,
+  LeaveRequestWithEmployee,
+  LeaveRequestStatus,
   ApplyLeaveRequest,
   Holiday,
   LeaveTodayResponse,
@@ -41,16 +43,40 @@ export const leaveApi = {
     return data
   },
 
-  getApprovedRequests: async (): Promise<
-    (LeaveRequest & {
-      employee: { id: string; displayName: string; designation: { name: string } }
-    })[]
-  > => {
-    const { data } = await apiClient.get<
-      (LeaveRequest & {
-        employee: { id: string; displayName: string; designation: { name: string } }
-      })[]
-    >('/api/leave/requests/approved')
+  getPendingRequests: async (): Promise<LeaveRequestWithEmployee[]> => {
+    const { data } = await apiClient.get<LeaveRequestWithEmployee[]>(
+      '/api/leave/requests/pending'
+    )
+    return data
+  },
+
+  getRecentRequests: async (
+    status: LeaveRequestStatus = 'APPROVED',
+    days: number = 7
+  ): Promise<LeaveRequestWithEmployee[]> => {
+    const { data } = await apiClient.get<LeaveRequestWithEmployee[]>(
+      '/api/leave/requests/recent',
+      { params: { status, days } }
+    )
+    return data
+  },
+
+  getEmployeeRequests: async (
+    employeeId: string
+  ): Promise<LeaveRequest[]> => {
+    const { data } = await apiClient.get<LeaveRequest[]>(
+      `/api/leave/requests/employee/${employeeId}`
+    )
+    return data
+  },
+
+  getApprovedRequests: async (
+    days: number = 30
+  ): Promise<LeaveRequestWithEmployee[]> => {
+    const { data } = await apiClient.get<LeaveRequestWithEmployee[]>(
+      '/api/leave/requests/recent',
+      { params: { status: 'APPROVED', days } }
+    )
     return data
   },
 

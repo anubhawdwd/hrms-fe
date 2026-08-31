@@ -34,6 +34,11 @@ const authSlice = createSlice({
         state.user.geoFencingEnabled = action.payload
       }
     },
+    updateUsesTeams(state, action: PayloadAction<boolean>) {
+      if (state.user) {
+        state.user.usesTeams = action.payload
+      }
+    },
     clearAuth(state) {
       state.user = null
       state.status = 'unauthenticated'
@@ -41,5 +46,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { startLoading, setUser, updateGeoFencingEnabled, clearAuth } = authSlice.actions
+export const { startLoading, setUser, updateGeoFencingEnabled, updateUsesTeams, clearAuth } = authSlice.actions
 export default authSlice.reducer

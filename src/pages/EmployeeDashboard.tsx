@@ -39,6 +39,8 @@ import { useMyProfile } from '../hooks/useEmployee'
 import { useLeaveBalances, useMyLeaveRequests, useHolidays } from '../hooks/useLeave'
 import { useCheckIn, useCheckOut, useTodayAttendance } from '../hooks/useAttendance'
 import { useWeeklyAttendance } from '../hooks/useAttendance'
+import { organizationApi } from '../api/organization.api'
+import type { WorkingHoursConfig } from '../types/organization.types'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import EmptyState from '../components/EmptyState'
@@ -254,24 +256,76 @@ const EmployeeDashboard = () => {
   // Leave modal
   const [leaveModalOpen, setLeaveModalOpen] = useState(false)
 
+  // Configurable display workplace working hours & scheduled presence
+  const [workingHoursConfig, setWorkingHoursConfig] = useState<WorkingHoursConfig>({
+    workingMinutes: 480,
+    lunchMinutes: 30,
+    breakMinutes: 20,
+    graceMinutes: 10,
+  })
+
+  useEffect(() => {
+    organizationApi
+      .getWorkingHoursConfig()
+      .then((cfg) => {
+        if (cfg && typeof cfg.workingMinutes === 'number') {
+          setWorkingHoursConfig(cfg)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   useEffect(() => {
     loadAttendance()
   }, [loadAttendance])
 
-  // Live working timer — 1-second updates
+  // Live working timer — 1-second updates with multi-session awareness
   useEffect(() => {
-    if (!todayAttendance?.events?.length) return
+    if (!todayAttendance) {
+      setElapsedSeconds(0)
+      return
+    }
 
-    const lastEvent = todayAttendance.events[todayAttendance.events.length - 1]
-    if (lastEvent.type !== 'CHECK_IN') return
+    const events = todayAttendance.events || []
+    if (events.length === 0) {
+      setElapsedSeconds((todayAttendance.totalMinutes ?? 0) * 60)
+      return
+    }
 
-    const checkInTime = new Date(lastEvent.timestamp).getTime()
-    const baseSeconds = todayAttendance.totalMinutes * 60
+    // Sort events chronologically
+    const sorted = [...events].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+
+    let completedSeconds = 0
+    let openCheckInTime: number | null = null
+
+    for (const evt of sorted) {
+      const t = new Date(evt.timestamp).getTime()
+      if (evt.type === 'CHECK_IN') {
+        openCheckInTime = t
+      } else if (evt.type === 'CHECK_OUT' && openCheckInTime !== null) {
+        completedSeconds += Math.max(Math.floor((t - openCheckInTime) / 1000), 0)
+        openCheckInTime = null
+      }
+    }
+
+    const lastEvent = sorted[sorted.length - 1]
+    const isCurrentlyIn = lastEvent.type === 'CHECK_IN' && openCheckInTime !== null
+
+    if (!isCurrentlyIn) {
+      // Completed day or currently checked out
+      const finalSecs = completedSeconds > 0 ? completedSeconds : (todayAttendance.totalMinutes ?? 0) * 60
+      setElapsedSeconds(finalSecs)
+      return
+    }
+
+    const activeInTime = openCheckInTime!
 
     const calc = () => {
       const now = Date.now()
-      const liveSeconds = Math.floor((now - checkInTime) / 1000)
-      setElapsedSeconds(baseSeconds + liveSeconds)
+      const liveSeconds = Math.max(Math.floor((now - activeInTime) / 1000), 0)
+      setElapsedSeconds(completedSeconds + liveSeconds)
     }
 
     calc() // Immediate
@@ -361,10 +415,31 @@ const EmployeeDashboard = () => {
     ? elapsedSeconds
     : (todayAttendance?.totalMinutes ?? 0) * 60
 
+  const totalScheduledPresenceMinutes =
+    (workingHoursConfig.workingMinutes || 480) +
+    (workingHoursConfig.lunchMinutes || 0) +
+    (workingHoursConfig.breakMinutes || 0)
+
+  const totalScheduledSeconds = totalScheduledPresenceMinutes * 60
+
   const progressPercent = Math.min(
-    (currentDisplaySeconds / (8 * 3600)) * 100,
+    (currentDisplaySeconds / totalScheduledSeconds) * 100,
     100
   )
+
+  const targetHours = Math.floor(totalScheduledPresenceMinutes / 60)
+  const targetMins = totalScheduledPresenceMinutes % 60
+  const targetFormatted = `${targetHours.toString().padStart(2, '0')}:${targetMins.toString().padStart(2, '0')}:00`
+
+  const remainingSeconds = Math.max(
+    totalScheduledSeconds - currentDisplaySeconds,
+    0
+  )
+  const remH = Math.floor(remainingSeconds / 3600)
+  const remM = Math.floor((remainingSeconds % 3600) / 60)
+  const remS = remainingSeconds % 60
+  const remainingFormatted = `${remH.toString().padStart(2, '0')}h ${remM.toString().padStart(2, '0')}m ${remS.toString().padStart(2, '0')}s`
+
   const { h, m, s } = formatTime(currentDisplaySeconds)
 
   const greeting = (() => {
@@ -554,7 +629,7 @@ const EmployeeDashboard = () => {
                   color="text.secondary"
                   sx={{ ml: 1, mb: 0.3 }}
                 >
-                  / 08:00:00
+                  / {targetFormatted}
                 </Typography>
               </Box>
 
@@ -583,10 +658,40 @@ const EmployeeDashboard = () => {
               <Typography
                 variant="caption"
                 color="text.secondary"
-                sx={{ mt: 0.5, display: 'block' }}
+                sx={{ mt: 0.75, display: 'block', fontWeight: 500 }}
               >
-                {Math.round(progressPercent)}% of 8-hour target
+                {Math.round(progressPercent)}% of today's total time
               </Typography>
+
+              {/* Time Remaining */}
+              <Box
+                sx={{
+                  mt: 2,
+                  p: 1.5,
+                  borderRadius: 2,
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  border: 1,
+                  borderColor: alpha(theme.palette.primary.main, 0.08),
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                  Time Remaining
+                </Typography>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={800}
+                  sx={{
+                    fontVariantNumeric: 'tabular-nums',
+                    letterSpacing: '0.02em',
+                    color: remainingSeconds === 0 ? 'success.main' : 'text.primary',
+                  }}
+                >
+                  {remainingFormatted}
+                </Typography>
+              </Box>
             </Box>
 
             {/* Check-in / Check-out Buttons */}
@@ -958,17 +1063,23 @@ const EmployeeDashboard = () => {
                                 mb: 0.5,
                               }}
                             />
-                            {dayData.totalMinutes > 0 && (
-                              <Typography
-                                variant="caption"
-                                display="block"
-                                fontWeight={500}
-                                color="text.secondary"
-                                sx={{ fontSize: '0.7rem' }}
-                              >
-                                {formatMinutes(dayData.totalMinutes)}
-                              </Typography>
-                            )}
+                            {(() => {
+                              // isToday is already computed above
+                              const displayMins = isToday && currentDisplaySeconds > 0
+                                ? Math.floor(currentDisplaySeconds / 60)
+                                : (dayData?.totalMinutes || 0)
+                              return displayMins > 0 ? (
+                                <Typography
+                                  variant="caption"
+                                  display="block"
+                                  fontWeight={500}
+                                  color="text.secondary"
+                                  sx={{ fontSize: '0.7rem' }}
+                                >
+                                  {formatMinutes(displayMins)}
+                                </Typography>
+                              ) : null
+                            })()}
                           </>
                         ) : isWeekend ? (
                           <Typography

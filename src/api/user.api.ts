@@ -28,6 +28,10 @@ export const userApi = {
     return data
   },
 
+  resetPassword: async (userId: string, manualPassword?: string): Promise<{ message: string; temporaryPassword: string }> => {
+    const { data } = await apiClient.post<{ message: string; temporaryPassword: string }>(`/api/users/${userId}/reset-password`, { manualPassword })
+    return data
+  },
   deactivate: async (userId: string): Promise<{ message: string }> => {
     const { data } = await apiClient.delete<{ message: string }>(
       `/api/users/${userId}`

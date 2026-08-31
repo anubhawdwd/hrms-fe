@@ -20,6 +20,7 @@ import {
   List,
   ListItem,
   ListItemButton,
+  Tooltip,
 } from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -29,6 +30,8 @@ import HowToRegIcon from '@mui/icons-material/HowToReg'
 import CelebrationIcon from '@mui/icons-material/Celebration'
 import BusinessIcon from '@mui/icons-material/Business'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import BadgeIcon from '@mui/icons-material/Badge'
 import { useDispatch } from 'react-redux'
 import { authApi } from '../api/auth.api'
 import { clearAuth } from '../store/auth.slice'
@@ -68,14 +71,7 @@ function formatRole(role?: string): string {
   }
 }
 
-function getCompanyName(email?: string): string {
-  if (!email) return 'Company Workspace'
-  const domain = email.split('@')[1] || ''
-  const base = domain.split('.')[0] || ''
-  if (!base) return 'Company Workspace'
-  const formatted = base.charAt(0).toUpperCase() + base.slice(1)
-  return `${formatted} Learning`
-}
+
 
 const AppShell = () => {
   const dispatch = useDispatch()
@@ -89,6 +85,9 @@ const AppShell = () => {
 
   // Mobile Drawer State
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+
+  const isEmployeeView = location.pathname.startsWith('/employee')
+  const isHrOrAdmin = user?.role === 'HR' || user?.role === 'COMPANY_ADMIN'
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setUserMenuAnchor(event.currentTarget)
@@ -111,8 +110,12 @@ const AppShell = () => {
   }
 
   const handleHomeClick = () => {
-    const homeRoute = getDashboardRoute(user?.role)
-    navigate(homeRoute)
+    if (isHrOrAdmin) {
+      navigate(isEmployeeView ? '/employee' : '/admin')
+    } else {
+      const homeRoute = getDashboardRoute(user?.role)
+      navigate(homeRoute)
+    }
   }
 
   const handleNavClick = (path: string) => {
@@ -120,14 +123,29 @@ const AppShell = () => {
     setMobileDrawerOpen(false)
   }
 
-  // Define minimal role-aware navigation items (Dashboard, Attendance, Holidays for HR/Admin)
+  const handleToggleViewMode = () => {
+    if (isEmployeeView) {
+      navigate('/admin')
+    } else {
+      navigate('/employee')
+    }
+    setMobileDrawerOpen(false)
+    handleUserMenuClose()
+  }
+
+  // Define context-aware navigation items
   const getNavItems = (): NavItem[] => {
     if (!user) return []
 
-    if (user.role === 'COMPANY_ADMIN' || user.role === 'HR') {
+    if (isHrOrAdmin) {
+      if (isEmployeeView) {
+        return [
+          { label: 'My Dashboard', path: '/employee', icon: <DashboardIcon fontSize="small" /> },
+        ]
+      }
       return [
         { label: 'Dashboard', path: '/admin', icon: <DashboardIcon fontSize="small" /> },
-        { label: 'Attendance', path: '/admin/attendance', icon: <HowToRegIcon fontSize="small" /> },
+        { label: 'Attendance', path: '/admin/attendance-dashboard', icon: <HowToRegIcon fontSize="small" /> },
         { label: 'Holidays', path: '/admin/holidays', icon: <CelebrationIcon fontSize="small" /> },
       ]
     }
@@ -153,16 +171,19 @@ const AppShell = () => {
     if (itemPath === '/admin' || itemPath === '/employee' || itemPath === '/super-admin') {
       return location.pathname === itemPath
     }
+    if (itemPath === '/admin/attendance-dashboard') {
+      return location.pathname === '/admin/attendance-dashboard' || location.pathname === '/admin/attendance'
+    }
     return location.pathname.startsWith(itemPath)
   }
 
-  const companyName = getCompanyName(user?.email)
+  const companyName = user?.companyName || 'Company Workspace'
   const userInitials = getInitials(user?.email)
   const roleLabel = formatRole(user?.role)
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'grey.50' }}>
-      {/* Primary Top AppBar — standard natural zIndex so modal Drawer cleanly stacks above */}
+      {/* Primary Top AppBar */}
       <AppBar position="sticky" elevation={1}>
         <Toolbar sx={{ justifyContent: 'space-between', gap: 2, minHeight: { xs: 56, sm: 64 }, px: { xs: 1.5, sm: 3 } }}>
           {/* Left: Brand + Dynamic Company Name */}
@@ -199,86 +220,107 @@ const AppShell = () => {
             <Typography
               variant="h6"
               fontWeight={800}
-              sx={{
-                letterSpacing: 0.5,
-                lineHeight: 1.1,
-                color: 'inherit',
-              }}
+              letterSpacing={1}
+              sx={{ color: 'white', lineHeight: 1.1, fontSize: { xs: '1rem', sm: '1.25rem' } }}
             >
               HRMS
             </Typography>
             <Typography
               variant="caption"
-              sx={{
-                fontSize: '0.72rem',
-                fontWeight: 500,
-                opacity: 0.85,
-                lineHeight: 1.2,
-                letterSpacing: 0.2,
-                color: 'inherit',
-                whiteSpace: 'nowrap',
-              }}
+              sx={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: { xs: '0.65rem', sm: '0.75rem' }, fontWeight: 500 }}
             >
-              {companyName}
+              {companyName} {isHrOrAdmin && (isEmployeeView ? '• Employee Mode' : '• Admin Mode')}
             </Typography>
           </Box>
 
-          {/* Center: Desktop Navigation Links (Dashboard, Attendance, Holidays) */}
-          {navItems.length > 0 && (
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                display: { xs: 'none', md: 'flex' },
-                alignItems: 'center',
-              }}
-            >
-              {navItems.map((item) => {
-                const active = isNavActive(item.path)
-                return (
-                  <Button
-                    key={item.path}
-                    onClick={() => handleNavClick(item.path)}
-                    startIcon={item.icon}
-                    size="small"
-                    sx={{
-                      color: 'inherit',
-                      textTransform: 'none',
-                      fontWeight: active ? 700 : 500,
-                      px: 1.75,
-                      py: 0.75,
-                      borderRadius: 1.5,
-                      bgcolor: active ? 'rgba(255, 255, 255, 0.22)' : 'transparent',
-                      borderBottom: active ? '2px solid white' : '2px solid transparent',
-                      '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.15)',
-                      },
-                    }}
-                  >
-                    {item.label}
-                  </Button>
-                )
-              })}
-            </Stack>
-          )}
+          {/* Center / Navigation Links (Desktop) */}
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              alignItems: 'center',
+            }}
+          >
+            {navItems.map((item) => {
+              const active = isNavActive(item.path)
+              return (
+                <Button
+                  key={item.path}
+                  onClick={() => handleNavClick(item.path)}
+                  startIcon={item.icon}
+                  sx={{
+                    color: 'white',
+                    fontWeight: active ? 700 : 500,
+                    bgcolor: active ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                    borderRadius: 2,
+                    px: 2,
+                    py: 0.75,
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                    transition: 'all 0.15s ease',
+                    '&:hover': {
+                      bgcolor: active ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                    },
+                  }}
+                >
+                  {item.label}
+                </Button>
+              )
+            })}
+          </Stack>
 
-          {/* Right: User Profile Control + Mobile Menu Button */}
-          <Stack direction="row" spacing={1} alignItems="center">
-            {/* Desktop / Mobile User Profile Button */}
+          {/* Right Section: HR View Switcher + User Profile Menu */}
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            {/* Prominent HR / Admin Dual-Mode View Switcher */}
+            {isHrOrAdmin && (
+              <Tooltip title={isEmployeeView ? 'Switch to Administrative HR Workspace' : 'Switch to Employee Self-Service Dashboard (Check-in/Out, Leave, Attendance)'}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={
+                    isEmployeeView ? (
+                      <AdminPanelSettingsIcon fontSize="small" />
+                    ) : (
+                      <BadgeIcon fontSize="small" />
+                    )
+                  }
+                  onClick={handleToggleViewMode}
+                  sx={{
+                    color: 'white',
+                    borderColor: 'rgba(255, 255, 255, 0.45)',
+                    bgcolor: 'rgba(255, 255, 255, 0.12)',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: { xs: '0.75rem', sm: '0.8125rem' },
+                    px: { xs: 1, sm: 1.75 },
+                    py: 0.5,
+                    borderRadius: 2,
+                    backdropFilter: 'blur(4px)',
+                    '&:hover': {
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255, 255, 255, 0.25)',
+                    },
+                  }}
+                >
+                  {isEmployeeView ? 'Admin View' : 'Employee View'}
+                </Button>
+              </Tooltip>
+            )}
+
+            {/* User Profile Menu Button */}
             {user && (
               <Button
                 onClick={handleUserMenuOpen}
                 aria-controls={isUserMenuOpen ? 'user-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={isUserMenuOpen ? 'true' : undefined}
-                aria-label="User profile menu"
                 sx={{
-                  color: 'inherit',
+                  color: 'white',
                   textTransform: 'none',
                   p: 0.5,
                   borderRadius: 2,
-                  bgcolor: isUserMenuOpen ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' },
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.12)' },
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 0.5 }}>
@@ -379,6 +421,26 @@ const AppShell = () => {
 
         <Divider sx={{ my: 0.5 }} />
 
+        {/* Dual Mode Switch in Menu */}
+        {isHrOrAdmin && (
+          <>
+            <MenuItem onClick={handleToggleViewMode} sx={{ py: 1 }}>
+              <ListItemIcon>
+                {isEmployeeView ? (
+                  <AdminPanelSettingsIcon fontSize="small" color="primary" />
+                ) : (
+                  <BadgeIcon fontSize="small" color="primary" />
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={isEmployeeView ? 'Switch to Admin / HR View' : 'Switch to Employee View'}
+                primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+              />
+            </MenuItem>
+            <Divider sx={{ my: 0.5 }} />
+          </>
+        )}
+
         <MenuItem onClick={handleLogout} sx={{ color: 'error.main', py: 1 }}>
           <ListItemIcon sx={{ color: 'error.main' }}>
             <LogoutIcon fontSize="small" />
@@ -387,14 +449,14 @@ const AppShell = () => {
         </MenuItem>
       </Menu>
 
-      {/* Mobile Navigation Drawer — Modal layer with backdrop covering whole viewport */}
+      {/* Mobile Navigation Drawer */}
       <Drawer
         variant="temporary"
         anchor="right"
         open={mobileDrawerOpen}
         onClose={() => setMobileDrawerOpen(false)}
         ModalProps={{
-          keepMounted: true, // Improved mobile performance
+          keepMounted: true,
         }}
         sx={{
           display: { xs: 'block', md: 'none' },
@@ -431,6 +493,28 @@ const AppShell = () => {
 
           <Divider sx={{ mb: 2 }} />
 
+          {/* Mode Switcher in Drawer */}
+          {isHrOrAdmin && (
+            <Box sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                fullWidth
+                size="small"
+                startIcon={
+                  isEmployeeView ? (
+                    <AdminPanelSettingsIcon fontSize="small" />
+                  ) : (
+                    <BadgeIcon fontSize="small" />
+                  )
+                }
+                onClick={handleToggleViewMode}
+                sx={{ textTransform: 'none', fontWeight: 700 }}
+              >
+                {isEmployeeView ? 'Switch to Admin / HR View' : 'Switch to Employee View'}
+              </Button>
+            </Box>
+          )}
+
           {/* Navigation Links */}
           <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, mb: 1, display: 'block', letterSpacing: 0.5 }}>
             NAVIGATION
@@ -464,7 +548,7 @@ const AppShell = () => {
           </List>
         </Box>
 
-        {/* Drawer Footer / User info + Logout */}
+        {/* Drawer Footer */}
         <Box sx={{ pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
           <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
             <Avatar sx={{ width: 36, height: 36, fontSize: '0.85rem', fontWeight: 700, bgcolor: 'primary.main' }}>
@@ -498,17 +582,19 @@ const AppShell = () => {
         component="main"
         sx={{
           flex: 1,
-          maxWidth: 1280,
+          maxWidth: location.pathname.startsWith('/admin/attendance-dashboard') ? '100%' : 1280,
           width: '100%',
           mx: 'auto',
-          px: { xs: 2, sm: 3, md: 4 },
+          px: location.pathname.startsWith('/admin/attendance-dashboard')
+            ? { xs: 1.5, sm: 2.5, md: 3.5 }
+            : { xs: 2, sm: 3, md: 4 },
           py: 3,
         }}
       >
         <Outlet />
       </Box>
 
-      {/* Blocking Change Password modal for first-time / temp-password login */}
+      {/* Blocking Change Password modal */}
       <ChangePasswordModal />
     </Box>
   )

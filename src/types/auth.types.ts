@@ -12,6 +12,14 @@ export interface LoginRequest {
   password: string
 }
 
+export interface GoogleLoginRequest {
+  idToken: string
+}
+
+export interface MicrosoftLoginRequest {
+  accessToken: string
+}
+
 export interface LoginResponse {
   accessToken: string
   user: {
@@ -19,8 +27,10 @@ export interface LoginResponse {
     email: string
     role?: UserRole
     companyId: string
+    companyName?: string
     geoFencingEnabled?: boolean
     mustChangePassword?: boolean
+    usesTeams?: boolean
   }
 }
 
@@ -29,8 +39,10 @@ export interface MeResponse {
   email: string
   role: UserRole
   companyId: string
+  companyName?: string
   geoFencingEnabled?: boolean
   mustChangePassword?: boolean
+  usesTeams?: boolean
 }
 
 export interface RefreshResponse {

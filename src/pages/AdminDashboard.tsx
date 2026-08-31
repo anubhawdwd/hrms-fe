@@ -1,9 +1,12 @@
 // src/pages/AdminDashboard.tsx
 import { Box, Typography, Paper, Grid, Button } from '@mui/material'
 import PeopleIcon from '@mui/icons-material/People'
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
-import EventAvailableIcon from '@mui/icons-material/EventAvailable'
-import LocationOnIcon from '@mui/icons-material/LocationOn'
+import EditCalendarIcon from '@mui/icons-material/EditCalendar'
+import BeachAccessIcon from '@mui/icons-material/BeachAccess'
+import BusinessIcon from '@mui/icons-material/Business'
+import CorporateFareIcon from '@mui/icons-material/CorporateFare'
 import CelebrationIcon from '@mui/icons-material/Celebration'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
@@ -14,28 +17,46 @@ const AdminDashboard = () => {
 
   const cards = [
     {
+      title: 'User Accounts',
+      subtitle: 'View company user accounts, system roles, authentication methods, and security flags',
+      path: '/admin/users',
+      icon: <ManageAccountsIcon color="primary" sx={{ fontSize: 36 }} />,
+    },
+    {
       title: 'Employees',
       subtitle: 'View, search, and manage employee directory, roles, and hierarchy',
       path: '/admin/employees',
       icon: <PeopleIcon color="primary" sx={{ fontSize: 36 }} />,
     },
     {
-      title: 'Attendance Administration',
-      subtitle: 'Review violations, manual day overrides, and event punch logs',
-      path: '/admin/attendance',
+      title: 'Attendance Dashboard',
+      subtitle: 'Monthly employee attendance overview, presence matrix, and daily statistics',
+      path: '/admin/attendance-dashboard',
       icon: <HowToRegIcon color="primary" sx={{ fontSize: 36 }} />,
     },
     {
-      title: 'Leave Approvals',
-      subtitle: 'Approve or reject employee leave applications and audit status',
-      path: '/admin/leave-approvals',
-      icon: <EventAvailableIcon color="primary" sx={{ fontSize: 36 }} />,
+      title: 'Attendance Administration',
+      subtitle: 'Manual attendance corrections, punch event management, and geo-fence violations',
+      path: '/admin/attendance',
+      icon: <EditCalendarIcon color="primary" sx={{ fontSize: 36 }} />,
     },
     {
-      title: 'Geo-Fencing Settings',
-      subtitle: 'Configure office coordinates and toggle perimeter checks',
+      title: 'Leave Dashboard',
+      subtitle: 'Overview of employees on leave today, pending approvals, and recently approved leaves',
+      path: '/admin/leave-dashboard',
+      icon: <BeachAccessIcon color="primary" sx={{ fontSize: 36 }} />,
+    },
+    {
+      title: 'Organization Management',
+      subtitle: 'Manage departments, teams, designations, and designation-level attendance policies',
+      path: '/admin/organization',
+      icon: <CorporateFareIcon color="primary" sx={{ fontSize: 36 }} />,
+    },
+    {
+      title: 'Workplace Settings',
+      subtitle: 'Configure working hours, lunch/break schedules, grace period, and office geo-fencing',
       path: '/admin/geo-settings',
-      icon: <LocationOnIcon color="primary" sx={{ fontSize: 36 }} />,
+      icon: <BusinessIcon color="primary" sx={{ fontSize: 36 }} />,
     },
     {
       title: 'Holidays',

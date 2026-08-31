@@ -43,7 +43,18 @@ export interface LeaveRequest {
   status: LeaveRequestStatus
   approvedById: string | null
   createdAt: string
+  updatedAt?: string
   leaveType: { name: string; code: string }
+}
+
+export interface LeaveRequestWithEmployee extends LeaveRequest {
+  employee: {
+    id: string
+    displayName: string
+    employeeCode?: number | null
+    designation: { name: string }
+    team?: { name: string } | null
+  }
 }
 
 export interface ApplyLeaveRequest {

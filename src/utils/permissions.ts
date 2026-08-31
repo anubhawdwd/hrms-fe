@@ -58,6 +58,9 @@ const ROLE_PERMISSION_MAP: Record<UserRole, Permission[]> = {
     'leave.view',
     'leave.approve',
     'attendance.view',
+    'attendance.override',
+    'org.manage',
+    'holiday.manage',
   ],
 
   EMPLOYEE: [

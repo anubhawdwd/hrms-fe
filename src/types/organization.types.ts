@@ -4,6 +4,7 @@ export interface Department {
   name: string
   companyId: string
   isActive: boolean
+  createdAt?: string
 }
 
 export interface Team {
@@ -11,6 +12,7 @@ export interface Team {
   name: string
   departmentId: string
   isActive: boolean
+  createdAt?: string
 }
 
 export interface Designation {
@@ -18,6 +20,24 @@ export interface Designation {
   name: string
   companyId: string
   isActive: boolean
+  createdAt?: string
+}
+
+export interface DesignationAttendancePolicy {
+  id: string
+  companyId: string
+  designationId: string
+  autoPresent: boolean
+  attendanceExempt: boolean
+  createdAt?: string
+  updatedAt?: string
+  designation?: { name: string }
+}
+
+export interface UpsertDesignationAttendancePolicyPayload {
+  designationId: string
+  autoPresent: boolean
+  attendanceExempt: boolean
 }
 
 export interface OfficeLocation {
@@ -44,4 +64,18 @@ export interface UpdateOfficeLocationPayload {
   longitude?: number
   radiusM?: number
   geoFencingEnabled?: boolean
+}
+
+export interface WorkingHoursConfig {
+  workingMinutes: number
+  lunchMinutes: number
+  breakMinutes: number
+  graceMinutes: number
+}
+
+export interface UpdateWorkingHoursPayload {
+  workingMinutes?: number
+  lunchMinutes?: number
+  breakMinutes?: number
+  graceMinutes?: number
 }

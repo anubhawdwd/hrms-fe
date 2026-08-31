@@ -197,6 +197,7 @@ const AdminCreateEmployee = () => {
         middleName: middleName.trim() || undefined,
         lastName: lastName.trim(),
         displayName: computedDisplayName,
+        departmentId: selectedDepartmentId || undefined,
         designationId: selectedDesignationId,
         teamId: selectedTeamId || undefined,
         managerId: selectedManagerId || undefined,

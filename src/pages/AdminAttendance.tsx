@@ -1,5 +1,5 @@
 // src/pages/AdminAttendance.tsx
-import { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -22,6 +22,7 @@ import {
   Stack,
   Card,
   CardContent,
+  Divider,
 } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import EditCalendarIcon from '@mui/icons-material/EditCalendar'
@@ -32,6 +33,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import SearchIcon from '@mui/icons-material/Search'
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'
 import EditIcon from '@mui/icons-material/Edit'
+import TimerIcon from '@mui/icons-material/Timer'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
@@ -46,6 +48,84 @@ import type {
 import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import EmptyState from '../components/EmptyState'
+import EmployeeAutocomplete from '../components/EmployeeAutocomplete'
+
+function getTodayDateIST(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+function formatDurationHMS(minutes: number): string {
+  if (!minutes || minutes <= 0) return '00:00:00'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  const s = 0
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function formatDateTimeIST(isoStr?: string | null): string {
+  if (!isoStr) return '—'
+  try {
+    const d = new Date(isoStr)
+    return (
+      d.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }) + ' IST'
+    )
+  } catch {
+    return '—'
+  }
+}
+
+function formatTimeOnly(isoStr?: string | null): string {
+  if (!isoStr) return ''
+  try {
+    const d = new Date(isoStr)
+    // Convert to IST HH:mm
+    const istStr = d.toLocaleTimeString('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    return istStr
+  } catch {
+    return ''
+  }
+}
+
+function combineDateAndTime(dateStr: string, timeStr: string): string | undefined {
+  if (!dateStr || !timeStr) return undefined
+  try {
+    const [hh, mm] = timeStr.split(':').map(Number)
+    const [y, m, d] = dateStr.split('-').map(Number)
+    // Interpret as IST (UTC - 5:30)
+    const utcMillis = Date.UTC(y!, m! - 1, d!, hh!, mm!, 0, 0) - (5 * 60 + 30) * 60 * 1000
+    return new Date(utcMillis).toISOString()
+  } catch {
+    return undefined
+  }
+}
+
+function calculateMinutes(timeIn: string, timeOut: string): number {
+  if (!timeIn || !timeOut) return 0
+  const [h1, m1] = timeIn.split(':').map(Number)
+  const [h2, m2] = timeOut.split(':').map(Number)
+  const totalIn = h1 * 60 + m1
+  const totalOut = h2 * 60 + m2
+  return Math.max(totalOut - totalIn, 0)
+}
 
 const AdminAttendance = () => {
   const navigate = useNavigate()
@@ -63,14 +143,15 @@ const AdminAttendance = () => {
 
   // ─── TAB 1: MANUAL ATTENDANCE DAY STATE ───
   const [dayEmployeeId, setDayEmployeeId] = useState<string>('')
-  const [dayDate, setDayDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
+  const [dayDate, setDayDate] = useState<string>(getTodayDateIST())
   const [recordLoading, setRecordLoading] = useState<boolean>(false)
   const [loadedRecord, setLoadedRecord] = useState<AttendanceDay | null>(null)
   const [recordChecked, setRecordChecked] = useState<boolean>(false)
 
-  // Form edit/create state
+  // Form edit/create state (Time-based editing)
+  const [checkInTime, setCheckInTime] = useState<string>('09:00')
+  const [checkOutTime, setCheckOutTime] = useState<string>('18:00')
   const [dayStatus, setDayStatus] = useState<'PRESENT' | 'ABSENT' | 'PARTIAL' | 'LEAVE'>('PRESENT')
-  const [dayTotalMinutes, setDayTotalMinutes] = useState<string>('480')
   const [dayReason, setDayReason] = useState<string>('')
   const [daySaving, setDaySaving] = useState<boolean>(false)
   const [lastDaySaved, setLastDaySaved] = useState<AttendanceDay | null>(null)
@@ -88,7 +169,19 @@ const AdminAttendance = () => {
   const [lastEventSaved, setLastEventSaved] = useState<AttendanceEvent | null>(null)
 
   // Helper map for employee display names
-  const employeeMap = new Map(employees.map((e) => [e.id, e.displayName]))
+  const employeeMap = useMemo(() => new Map(employees.map((e) => [e.id, e.displayName])), [employees])
+
+  // Calculated presence duration preview for Tab 1
+  const calculatedDuration = useMemo(() => {
+    if (!checkInTime || !checkOutTime) return { minutes: 0, formatted: '—', isInvalid: false }
+    const mins = calculateMinutes(checkInTime, checkOutTime)
+    const [h1, m1] = checkInTime.split(':').map(Number)
+    const [h2, m2] = checkOutTime.split(':').map(Number)
+    const isInvalid = h2 * 60 + m2 < h1 * 60 + m1
+
+    const formatted = formatDurationHMS(mins)
+    return { minutes: mins, formatted, isInvalid }
+  }, [checkInTime, checkOutTime])
 
   // Load violations
   const loadViolations = useCallback(async () => {
@@ -136,11 +229,28 @@ const AdminAttendance = () => {
 
       if (record) {
         setDayStatus(record.status)
-        setDayTotalMinutes(String(record.totalMinutes ?? 0))
+
+        // Extract check-in and check-out from events
+        const inEvt = record.events?.find((e) => e.type === 'CHECK_IN')
+        const outEvt = record.events?.filter((e) => e.type === 'CHECK_OUT').at(-1)
+
+        if (inEvt) {
+          setCheckInTime(formatTimeOnly(inEvt.timestamp))
+        } else {
+          setCheckInTime('09:00')
+        }
+
+        if (outEvt) {
+          setCheckOutTime(formatTimeOnly(outEvt.timestamp))
+        } else {
+          setCheckOutTime('18:00')
+        }
+
         toast.success('Existing attendance record found!')
       } else {
         setDayStatus('PRESENT')
-        setDayTotalMinutes('480')
+        setCheckInTime('09:00')
+        setCheckOutTime('18:00')
         toast('No existing attendance record for this date.', { icon: 'ℹ️' })
       }
     } catch (err: any) {
@@ -163,7 +273,29 @@ const AdminAttendance = () => {
       return
     }
 
-    const minutesNum = parseInt(dayTotalMinutes, 10) || 0
+    const todayStr = getTodayDateIST()
+    if (dayDate > todayStr) {
+      toast.error('Cannot create or modify attendance for a future date')
+      return
+    }
+
+    if (calculatedDuration.isInvalid) {
+      toast.error('Check-out time cannot be earlier than check-in time')
+      return
+    }
+
+    const checkInISO = combineDateAndTime(dayDate, checkInTime)
+    const checkOutISO = combineDateAndTime(dayDate, checkOutTime)
+
+    const nowTime = Date.now()
+    if (checkInISO && new Date(checkInISO).getTime() > nowTime) {
+      toast.error('Check-in time cannot be in the future')
+      return
+    }
+    if (checkOutISO && new Date(checkOutISO).getTime() > nowTime) {
+      toast.error('Check-out time cannot be in the future')
+      return
+    }
 
     setDaySaving(true)
     try {
@@ -171,7 +303,9 @@ const AdminAttendance = () => {
         // Update existing record using internal UUID
         const result = await attendanceApi.hrUpdateAttendanceDay(loadedRecord.id, {
           status: dayStatus,
-          totalMinutes: minutesNum,
+          checkIn: checkInISO,
+          checkOut: checkOutISO,
+          reason: dayReason.trim() || undefined,
         })
         setLoadedRecord(result)
         setLastDaySaved(result)
@@ -187,8 +321,9 @@ const AdminAttendance = () => {
         const result = await attendanceApi.hrUpsertAttendanceDay({
           employeeId: dayEmployeeId,
           date: dayDate,
+          checkIn: checkInISO,
+          checkOut: checkOutISO,
           status: dayStatus,
-          totalMinutes: minutesNum,
           reason: dayReason.trim(),
         })
         setLoadedRecord(result)
@@ -254,186 +389,144 @@ const AdminAttendance = () => {
     <Box sx={{ maxWidth: 1200, mx: 'auto', pb: 4 }}>
       <PageHeader
         title="Attendance Administration"
-        subtitle="Review location violations, adjust employee daily attendance, and record missing punch events"
+        subtitle="Manage employee attendance violations, manual day adjustments, and audit events"
         backTo="/admin"
         backLabel="Back to Dashboard"
         breadcrumbs={[
           { label: 'Admin', path: '/admin' },
-          { label: 'Attendance' },
+          { label: 'Attendance Administration' },
         ]}
         action={
           <Button
             variant="outlined"
             startIcon={<SettingsIcon />}
             onClick={() => navigate('/admin/geo-settings')}
-            size="small"
           >
-            Geo-Fencing Settings
+            Workplace & Geo Settings
           </Button>
         }
       />
 
-      {/* Tabs */}
-      <Paper elevation={1} sx={{ mb: 3, borderRadius: 2 }}>
+      {/* Tabs Header */}
+      <Paper elevation={1} sx={{ borderRadius: 2, mb: 3 }}>
         <Tabs
           value={currentTab}
-          onChange={(_, newVal) => setCurrentTab(newVal)}
+          onChange={(_, val) => setCurrentTab(val)}
           variant="scrollable"
           scrollButtons="auto"
+          sx={{ px: 2, borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab
             icon={<WarningAmberIcon />}
             iconPosition="start"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Geo-Fence Violations
-                {violations.length > 0 && (
-                  <Chip
-                    label={violations.length}
-                    size="small"
-                    color="warning"
-                    sx={{ height: 20, fontSize: '0.75rem' }}
-                  />
-                )}
-              </Box>
-            }
+            label="Geo-Fence Violations"
+            sx={{ fontWeight: 600 }}
           />
           <Tab
             icon={<EditCalendarIcon />}
             iconPosition="start"
-            label="Manual Attendance Day"
+            label="Manual Day Adjustments"
+            sx={{ fontWeight: 600 }}
           />
           <Tab
             icon={<AccessTimeIcon />}
             iconPosition="start"
-            label="Log Attendance Event"
+            label="Log Punch Event"
+            sx={{ fontWeight: 600 }}
           />
         </Tabs>
       </Paper>
 
       {/* ─── TAB 0: VIOLATIONS ─── */}
       {currentTab === 0 && (
-        <Box>
-          {/* Filter Bar */}
-          <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
-            <Typography variant="subtitle2" fontWeight={600} mb={1.5}>
-              Filter Violations
-            </Typography>
-            <Grid container spacing={2} alignItems="center">
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  select
-                  label="Employee"
-                  value={filterEmployeeId}
-                  onChange={(e) => setFilterEmployeeId(e.target.value)}
-                  fullWidth
-                  size="small"
-                >
-                  <MenuItem value="">All Employees</MenuItem>
-                  {employees.map((emp) => (
-                    <MenuItem key={emp.id} value={emp.id}>
-                      {emp.displayName} ({emp.employeeCode})
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <TextField
-                  label="From Date"
-                  type="date"
-                  value={filterFromDate}
-                  onChange={(e) => setFilterFromDate(e.target.value)}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <TextField
-                  label="To Date"
-                  type="date"
-                  value={filterToDate}
-                  onChange={(e) => setFilterToDate(e.target.value)}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 2 }}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<RefreshIcon />}
-                  onClick={() => loadViolations()}
-                  disabled={violationsLoading}
-                >
-                  Refresh
-                </Button>
-              </Grid>
+        <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
+          {/* Filters Bar */}
+          <Grid container spacing={2} alignItems="center" mb={3}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <EmployeeAutocomplete
+                value={filterEmployeeId}
+                onChange={(id) => setFilterEmployeeId(id)}
+                employees={employees}
+                label="Filter by Employee (Optional)"
+                placeholder="Type name, code, or email..."
+              />
             </Grid>
-          </Paper>
+
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                label="From Date"
+                type="date"
+                value={filterFromDate}
+                onChange={(e) => setFilterFromDate(e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                label="To Date"
+                type="date"
+                value={filterToDate}
+                onChange={(e) => setFilterToDate(e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<RefreshIcon />}
+                onClick={loadViolations}
+                disabled={violationsLoading}
+                fullWidth
+                sx={{ height: 56 }}
+              >
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
 
           {/* Violations Table */}
           {violationsLoading ? (
-            <LoadingState message="Loading violations log..." />
+            <LoadingState message="Loading attendance violations..." />
           ) : violations.length === 0 ? (
             <EmptyState
-              title="No Geo-Fence Violations Found"
-              subtitle="All check-in and check-out attempts were compliant with company perimeter rules."
+              title="No Violations Found"
+              subtitle="No attendance geo-fencing violations match the selected filters."
             />
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: 'background.default' }}>
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+              <Table>
+                <TableHead sx={{ bgcolor: 'grey.50' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>Timestamp</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Date & Time</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Employee</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Reason</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Distance</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>GPS Coordinates</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Reason / Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Distance Beyond Office</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {violations.map((v) => (
                     <TableRow key={v.id} hover>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {dayjs(v.createdAt).format('DD MMM YYYY, hh:mm A')}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600}>
-                          {employeeMap.get(v.employeeId) || v.employeeId}
-                        </Typography>
+                      <TableCell>{formatDateTimeIST(v.createdAt)}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>
+                        {employeeMap.get(v.employeeId) || v.employeeId}
                       </TableCell>
                       <TableCell>
                         <Chip
-                          label={v.reason === 'OUTSIDE_RADIUS' ? 'Outside Perimeter' : v.reason}
-                          color={v.reason === 'OUTSIDE_RADIUS' ? 'error' : 'warning'}
+                          label={v.reason}
+                          color={v.reason.includes('OUTSIDE') ? 'error' : 'warning'}
                           size="small"
                         />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {v.distanceM ? `${Math.round(v.distanceM).toLocaleString()} m` : '—'}
-                        </Typography>
+                        {v.distanceM ? `${Math.round(v.distanceM)} meters` : 'N/A'}
                       </TableCell>
                       <TableCell>
-                        <Typography variant="caption" fontFamily="monospace">
-                          {v.latitude.toFixed(5)}, {v.longitude.toFixed(5)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={v.source}
-                          variant="outlined"
-                          size="small"
-                          color={v.source === 'WEB' ? 'primary' : 'secondary'}
-                        />
+                        <Chip label={v.source} variant="outlined" size="small" />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -441,47 +534,41 @@ const AdminAttendance = () => {
               </Table>
             </TableContainer>
           )}
-        </Box>
+        </Paper>
       )}
 
-      {/* ─── TAB 1: MANUAL ATTENDANCE DAY (HR LOOKUP & EDIT) ─── */}
+      {/* ─── TAB 1: MANUAL ATTENDANCE DAY ADJUSTMENTS ─── */}
       {currentTab === 1 && (
         <Grid container spacing={3}>
+          {/* Left Column: Form */}
           <Grid size={{ xs: 12, md: 7 }}>
-            {/* Step 1: Select Employee & Date */}
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 2, mb: 3 }}>
+            <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
               <Typography variant="subtitle1" fontWeight={700} mb={0.5}>
-                1. Select Employee & Date
+                Lookup & Adjust Attendance Record
               </Typography>
               <Typography variant="body2" color="text.secondary" mb={2.5}>
-                Choose the employee and target date to inspect or modify their attendance record.
+                Select an employee and date to inspect existing records, or enter check-in and check-out times to record/adjust attendance.
               </Typography>
 
-              <Grid container spacing={2} alignItems="center">
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    select
-                    label="Select Employee"
+              {/* Step 1: Employee & Date Selector */}
+              <Grid container spacing={2} mb={2.5}>
+                <Grid size={{ xs: 12 }}>
+                  <EmployeeAutocomplete
                     value={dayEmployeeId}
-                    onChange={(e) => {
-                      setDayEmployeeId(e.target.value)
+                    onChange={(id) => {
+                      setDayEmployeeId(id)
                       setRecordChecked(false)
                       setLoadedRecord(null)
                     }}
-                    fullWidth
+                    employees={employees}
+                    label="Select Employee"
                     required
-                  >
-                    {employees.map((emp) => (
-                      <MenuItem key={emp.id} value={emp.id}>
-                        {emp.displayName} (Code: {emp.employeeCode})
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  />
                 </Grid>
 
-                <Grid size={{ xs: 12, sm: 6 }}>
+                <Grid size={{ xs: 12, sm: 8 }}>
                   <TextField
-                    label="Date"
+                    label="Attendance Date"
                     type="date"
                     value={dayDate}
                     onChange={(e) => {
@@ -492,123 +579,147 @@ const AdminAttendance = () => {
                     fullWidth
                     required
                     InputLabelProps={{ shrink: true }}
+                    inputProps={{ max: getTodayDateIST() }}
                   />
                 </Grid>
 
-                <Grid size={{ xs: 12 }}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <Button
-                    variant="contained"
-                    fullWidth
-                    startIcon={recordLoading ? <CircularProgress size={18} color="inherit" /> : <SearchIcon />}
+                    variant="outlined"
+                    startIcon={recordLoading ? <CircularProgress size={18} /> : <SearchIcon />}
                     onClick={handleLoadAttendanceRecord}
-                    disabled={recordLoading || !dayEmployeeId || !dayDate}
+                    disabled={recordLoading || !dayEmployeeId}
+                    fullWidth
+                    sx={{ height: 56 }}
                   >
-                    {recordLoading ? 'Checking Attendance...' : 'Load Attendance Record'}
+                    {recordLoading ? 'Loading...' : 'Load Record'}
                   </Button>
                 </Grid>
               </Grid>
-            </Paper>
 
-            {/* Step 2: Edit or Create Form (Shown after checking) */}
-            {recordChecked && (
-              <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
-                {loadedRecord ? (
-                  <Alert severity="info" sx={{ mb: 2.5, borderRadius: 1.5 }}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      Existing Attendance Record Loaded
-                    </Typography>
-                    <Typography variant="body2">
-                      Current Status: <strong>{loadedRecord.status}</strong> • Total Minutes: <strong>{loadedRecord.totalMinutes} mins</strong> ({Math.floor(loadedRecord.totalMinutes / 60)} hrs {loadedRecord.totalMinutes % 60} mins)
-                    </Typography>
-                  </Alert>
-                ) : (
-                  <Alert severity="warning" sx={{ mb: 2.5, borderRadius: 1.5 }}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                      No Attendance Record Found
-                    </Typography>
-                    <Typography variant="body2">
-                      No record exists for {employeeMap.get(dayEmployeeId)} on {dayjs(dayDate).format('DD MMM YYYY')}. You can create one below.
-                    </Typography>
-                  </Alert>
-                )}
-
-                <Typography variant="subtitle1" fontWeight={700} mb={0.5}>
-                  {loadedRecord ? '2. Update Attendance Record' : '2. Create Attendance Record'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={2}>
-                  {loadedRecord
-                    ? 'Adjust the attendance status and total minutes for this day.'
-                    : 'Provide the attendance status, total working minutes, and administrative note.'}
-                </Typography>
-
+              {/* Step 2: Edit Form (Visible after checking or always editable) */}
+              {recordChecked && (
                 <Box component="form" onSubmit={handleSaveAttendanceRecord}>
+                  <Divider sx={{ my: 2.5 }} />
+
+                  <Alert
+                    severity={loadedRecord ? 'info' : 'warning'}
+                    sx={{ mb: 2.5, borderRadius: 1.5 }}
+                  >
+                    {loadedRecord
+                      ? 'Existing record loaded. Adjust the check-in / check-out times and status below.'
+                      : 'No existing attendance record for this date. Enter times below to create one.'}
+                  </Alert>
+
                   <Grid container spacing={2}>
+                    {/* Check-In Time */}
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Check-In Time"
+                        type="time"
+                        value={checkInTime}
+                        onChange={(e) => setCheckInTime(e.target.value)}
+                        fullWidth
+                        required
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 60 }}
+                      />
+                    </Grid>
+
+                    {/* Check-Out Time */}
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Check-Out Time"
+                        type="time"
+                        value={checkOutTime}
+                        onChange={(e) => setCheckOutTime(e.target.value)}
+                        fullWidth
+                        required
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ step: 60 }}
+                      />
+                    </Grid>
+
+                    {/* Presence Duration Preview Box */}
+                    <Grid size={{ xs: 12 }}>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: calculatedDuration.isInvalid ? 'error.50' : 'grey.50',
+                          borderColor: calculatedDuration.isInvalid ? 'error.main' : 'divider',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.5,
+                        }}
+                      >
+                        <TimerIcon color={calculatedDuration.isInvalid ? 'error' : 'primary'} />
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            Calculated Presence Duration
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            fontWeight={700}
+                            color={calculatedDuration.isInvalid ? 'error.main' : 'text.primary'}
+                          >
+                            {calculatedDuration.isInvalid
+                              ? 'Invalid times: Check-out must be after Check-in'
+                              : calculatedDuration.formatted}
+                          </Typography>
+                        </Box>
+                      </Paper>
+                    </Grid>
+
+                    {/* Status Selector */}
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         select
                         label="Attendance Status"
                         value={dayStatus}
-                        onChange={(e) => {
-                          const newStatus = e.target.value as any
-                          setDayStatus(newStatus)
-                          if (newStatus === 'PRESENT' && !loadedRecord) setDayTotalMinutes('480')
-                          else if (newStatus === 'PARTIAL' && !loadedRecord) setDayTotalMinutes('240')
-                          else if ((newStatus === 'ABSENT' || newStatus === 'LEAVE') && !loadedRecord)
-                            setDayTotalMinutes('0')
-                        }}
+                        onChange={(e) => setDayStatus(e.target.value as any)}
                         fullWidth
                         required
                       >
-                        <MenuItem value="PRESENT">PRESENT</MenuItem>
-                        <MenuItem value="PARTIAL">PARTIAL</MenuItem>
+                        <MenuItem value="PRESENT">PRESENT (Full Day)</MenuItem>
+                        <MenuItem value="PARTIAL">PARTIAL (Short Day)</MenuItem>
                         <MenuItem value="ABSENT">ABSENT</MenuItem>
                         <MenuItem value="LEAVE">LEAVE</MenuItem>
                       </TextField>
                     </Grid>
 
+                    {/* Administrative Reason */}
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
-                        label="Total Working Minutes"
-                        type="number"
-                        value={dayTotalMinutes}
-                        onChange={(e) => setDayTotalMinutes(e.target.value)}
+                        label={loadedRecord ? 'Adjustment Reason (Optional)' : 'Creation Reason (Required)'}
+                        value={dayReason}
+                        onChange={(e) => setDayReason(e.target.value)}
                         fullWidth
-                        helperText={`Equivalent: ${Math.floor((parseInt(dayTotalMinutes, 10) || 0) / 60)} hrs ${(parseInt(dayTotalMinutes, 10) || 0) % 60} mins`}
+                        required={!loadedRecord}
+                        placeholder="e.g. Approved manual check-in correction"
                       />
                     </Grid>
-
-                    {!loadedRecord && (
-                      <Grid size={{ xs: 12 }}>
-                        <TextField
-                          label="Administrative Reason / Audit Note"
-                          value={dayReason}
-                          onChange={(e) => setDayReason(e.target.value)}
-                          fullWidth
-                          required
-                          placeholder="e.g. Approved manual attendance entry for client onsite visit"
-                        />
-                      </Grid>
-                    )}
 
                     <Grid size={{ xs: 12 }}>
                       <Button
                         type="submit"
                         variant="contained"
                         fullWidth
-                        color={loadedRecord ? 'primary' : 'success'}
-                        disabled={daySaving}
+                        disabled={daySaving || calculatedDuration.isInvalid}
                         startIcon={
                           daySaving ? (
-                            <CircularProgress size={18} color="inherit" />
+                            <CircularProgress size={18} />
                           ) : loadedRecord ? (
                             <EditIcon />
                           ) : (
                             <AddCircleOutlineIcon />
                           )
                         }
+                        sx={{ mt: 1 }}
                       >
                         {daySaving
-                          ? 'Saving...'
+                          ? 'Saving Attendance...'
                           : loadedRecord
                             ? 'Update Attendance Record'
                             : 'Create Attendance Record'}
@@ -616,31 +727,43 @@ const AdminAttendance = () => {
                     </Grid>
                   </Grid>
                 </Box>
-              </Paper>
-            )}
+              )}
+            </Paper>
           </Grid>
 
-          {/* Right Preview Card */}
+          {/* Right Column: Preview / Saved Card */}
           <Grid size={{ xs: 12, md: 5 }}>
             <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="subtitle1" fontWeight={700} mb={1.5}>
-                  Processed Record Details
+                  Attendance Record Summary
                 </Typography>
                 {lastDaySaved ? (
                   <Stack spacing={1.5}>
                     <Alert severity="success" sx={{ borderRadius: 1.5 }}>
-                      Attendance successfully saved!
+                      Attendance day successfully saved!
                     </Alert>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Employee</Typography>
                       <Typography variant="body2" fontWeight={600}>
-                        {employeeMap.get(lastDaySaved.employeeId) || lastDaySaved.employeeId}
+                        {employeeMap.get(dayEmployeeId) || dayEmployeeId}
                       </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Date</Typography>
-                      <Typography variant="body2">{dayjs(lastDaySaved.date).format('DD MMMM YYYY')}</Typography>
+                      <Typography variant="body2">{dayjs(lastDaySaved.date).format('DD MMM YYYY')}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Check-In</Typography>
+                      <Typography variant="body2">
+                        {formatTimeOnly(lastDaySaved.events?.find((e) => e.type === 'CHECK_IN')?.timestamp) || checkInTime || '—'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Check-Out</Typography>
+                      <Typography variant="body2">
+                        {formatTimeOnly(lastDaySaved.events?.filter((e) => e.type === 'CHECK_OUT').at(-1)?.timestamp) || checkOutTime || '—'}
+                      </Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Status</Typography>
@@ -659,13 +782,15 @@ const AdminAttendance = () => {
                       </Box>
                     </Box>
                     <Box>
-                      <Typography variant="caption" color="text.secondary">Total Working Minutes</Typography>
-                      <Typography variant="body2">{lastDaySaved.totalMinutes} mins ({Math.floor(lastDaySaved.totalMinutes / 60)} hrs {lastDaySaved.totalMinutes % 60} mins)</Typography>
+                      <Typography variant="caption" color="text.secondary">Total Presence Duration</Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {formatDurationHMS(lastDaySaved.totalMinutes)}
+                      </Typography>
                     </Box>
                   </Stack>
                 ) : (
                   <Typography variant="body2" color="text.secondary">
-                    Select an employee and date, click <strong>Load Attendance Record</strong>, and make adjustments. The updated attendance details will appear here upon saving.
+                    Select an employee and date, click <strong>Load Record</strong>, and enter actual check-in / check-out times. The system will calculate presence duration automatically.
                   </Typography>
                 )}
               </CardContent>
@@ -689,20 +814,13 @@ const AdminAttendance = () => {
               <Box component="form" onSubmit={handleAddAttendanceEvent}>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12 }}>
-                    <TextField
-                      select
-                      label="Select Employee"
+                    <EmployeeAutocomplete
                       value={eventEmployeeId}
-                      onChange={(e) => setEventEmployeeId(e.target.value)}
-                      fullWidth
+                      onChange={(id) => setEventEmployeeId(id)}
+                      employees={employees}
+                      label="Select Employee"
                       required
-                    >
-                      {employees.map((emp) => (
-                        <MenuItem key={emp.id} value={emp.id}>
-                          {emp.displayName} (Code: {emp.employeeCode}) — {emp.designation?.name}
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                    />
                   </Grid>
 
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -714,6 +832,7 @@ const AdminAttendance = () => {
                       fullWidth
                       required
                       InputLabelProps={{ shrink: true }}
+                      inputProps={{ max: getTodayDateIST() }}
                     />
                   </Grid>
 
@@ -813,7 +932,7 @@ const AdminAttendance = () => {
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Timestamp</Typography>
-                      <Typography variant="body2">{dayjs(lastEventSaved.timestamp).format('DD MMM YYYY, hh:mm A')}</Typography>
+                      <Typography variant="body2">{formatDateTimeIST(lastEventSaved.timestamp)}</Typography>
                     </Box>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Source</Typography>

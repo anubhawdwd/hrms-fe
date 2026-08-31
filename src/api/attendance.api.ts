@@ -9,6 +9,9 @@ import type {
   HrUpsertAttendanceDayPayload,
   HrUpdateAttendanceDayPayload,
   HrAddAttendanceEventPayload,
+  AttendanceDashboardResponse,
+  EmployeeAttendanceOverride,
+  UpsertEmployeeAttendanceOverridePayload,
 } from '../types/attendance.types'
 
 export const attendanceApi = {
@@ -54,6 +57,17 @@ export const attendanceApi = {
     return data
   },
 
+  // ─── HR Attendance Dashboard Matrix (Phase 5) ───
+  getDashboard: async (
+    month: string
+  ): Promise<AttendanceDashboardResponse> => {
+    const { data } = await apiClient.get<AttendanceDashboardResponse>(
+      '/api/attendance/dashboard',
+      { params: { month } }
+    )
+    return data
+  },
+
   // ─── HR Ops ───
   getViolations: async (params?: {
     employeeId?: string
@@ -94,6 +108,33 @@ export const attendanceApi = {
     const { data } = await apiClient.post<AttendanceEvent>(
       '/api/attendance/hr/attendance-event',
       payload
+    )
+    return data
+  },
+
+  // ─── Employee Attendance Overrides ───
+  listEmployeeOverrides: async (): Promise<EmployeeAttendanceOverride[]> => {
+    const { data } = await apiClient.get<EmployeeAttendanceOverride[]>(
+      '/api/attendance/employee-overrides'
+    )
+    return data
+  },
+
+  upsertEmployeeOverride: async (
+    payload: UpsertEmployeeAttendanceOverridePayload
+  ): Promise<EmployeeAttendanceOverride> => {
+    const { data } = await apiClient.post<EmployeeAttendanceOverride>(
+      '/api/attendance/employee-override',
+      payload
+    )
+    return data
+  },
+
+  deleteEmployeeOverride: async (
+    employeeId: string
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.delete<{ message: string }>(
+      `/api/attendance/employee-override/${employeeId}`
     )
     return data
   },

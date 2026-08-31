@@ -2,6 +2,8 @@
 import { apiClient, authClient, setToken, setCompanyId } from './client'
 import type {
   LoginRequest,
+  GoogleLoginRequest,
+  MicrosoftLoginRequest,
   LoginResponse,
   MeResponse,
   RefreshResponse,
@@ -13,6 +15,30 @@ export const authApi = {
     // Use authClient — login should never trigger refresh interceptor
     const { data } = await authClient.post<LoginResponse>(
       '/api/auth/login',
+      payload
+    )
+    setToken(data.accessToken)
+    if (data.user?.companyId) {
+      setCompanyId(data.user.companyId)
+    }
+    return data
+  },
+
+  googleLogin: async (payload: GoogleLoginRequest): Promise<LoginResponse> => {
+    const { data } = await authClient.post<LoginResponse>(
+      '/api/auth/google',
+      payload
+    )
+    setToken(data.accessToken)
+    if (data.user?.companyId) {
+      setCompanyId(data.user.companyId)
+    }
+    return data
+  },
+
+  microsoftLogin: async (payload: MicrosoftLoginRequest): Promise<LoginResponse> => {
+    const { data } = await authClient.post<LoginResponse>(
+      '/api/auth/microsoft',
       payload
     )
     setToken(data.accessToken)

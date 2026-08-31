@@ -1,3 +1,4 @@
+import { useState } from 'react'
 // src/pages/AdminEmployeeProfile.tsx
 import { useParams } from 'react-router-dom'
 import {
@@ -9,11 +10,18 @@ import {
 } from '@mui/material'
 import { useEmployeeById } from '../hooks/useEmployee'
 import PageHeader from '../components/PageHeader'
+import { ResetPasswordDialog } from '../components/ResetPasswordDialog'
+import LockResetIcon from '@mui/icons-material/LockReset'
+import { useUser } from '../hooks/useAuth'
+import { Button, Stack } from '@mui/material'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 
 const AdminEmployeeProfile = () => {
   const { employeeId } = useParams<{ employeeId: string }>()
+  const currentUser = useUser()
+  const [resetModalOpen, setResetModalOpen] = useState(false)
+  const isHrOrAdmin = currentUser?.role === 'HR' || currentUser?.role === 'COMPANY_ADMIN'
   const { employee, loading, error } = useEmployeeById(employeeId)
 
   if (loading) return <LoadingState />
@@ -33,11 +41,24 @@ const AdminEmployeeProfile = () => {
           { label: employee.displayName },
         ]}
         action={
-          <Chip
-            label={employee.isActive ? 'Active' : 'Inactive'}
-            color={employee.isActive ? 'success' : 'default'}
-            size="small"
-          />
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            {isHrOrAdmin && (
+              <Button
+                variant="outlined"
+                color="warning"
+                size="small"
+                startIcon={<LockResetIcon />}
+                onClick={() => setResetModalOpen(true)}
+              >
+                Reset Password
+              </Button>
+            )}
+            <Chip
+              label={employee.isActive ? 'Active' : 'Inactive'}
+              color={employee.isActive ? 'success' : 'default'}
+              size="small"
+            />
+          </Stack>
         }
       />
 
@@ -57,8 +78,13 @@ const AdminEmployeeProfile = () => {
               <strong>Designation:</strong> {employee.designation.name}
             </Typography>
             <Typography mb={1}>
-              <strong>Team:</strong> {employee.team?.name ?? '—'}
+              <strong>Department:</strong> {employee.department?.name ?? '—'}
             </Typography>
+            {employee.team && (
+              <Typography mb={1}>
+                <strong>Team:</strong> {employee.team.name}
+              </Typography>
+            )}
             <Typography mb={1}>
               <strong>Joining Date:</strong>{' '}
               {employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : '—'}
@@ -111,6 +137,13 @@ const AdminEmployeeProfile = () => {
           </Paper>
         </Grid>
       </Grid>
+      <ResetPasswordDialog
+        open={resetModalOpen}
+        onClose={() => setResetModalOpen(false)}
+        userId={employee.userId}
+        employeeName={employee.displayName}
+        email={employee.user.email}
+      />
     </Box>
   )
 }
