@@ -57,6 +57,10 @@ export interface CreateEmployeePayload {
   dateOfBirth?: string
   joiningDate: string
   isProbation?: boolean
+  initialLeaveGrant?: {
+    leaveTypeId: string
+    allocated: number
+  } | null
 }
 
 export interface UpdateEmployeeAdminPayload {

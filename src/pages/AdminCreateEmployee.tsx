@@ -32,6 +32,8 @@ import toast from 'react-hot-toast'
 
 import { userApi } from '../api/user.api'
 import { employeeApi } from '../api/employee.api'
+import { leaveApi } from '../api/leave.api'
+import type { LeaveType } from '../types/leave.types'
 import { organizationApi } from '../api/organization.api'
 import type { User } from '../types/user.types'
 import type { EmployeeListItem } from '../types/employee.types'
@@ -64,6 +66,8 @@ const AdminCreateEmployee = () => {
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [joiningDate, setJoiningDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [isProbation, setIsProbation] = useState(true)
+  const [probationLeaveDays, setProbationLeaveDays] = useState<number | string>(6)
+  const [clpLeaveType, setClpLeaveType] = useState<LeaveType | null>(null)
 
   // Org Dropdowns State
   const [designations, setDesignations] = useState<Designation[]>([])
@@ -84,14 +88,21 @@ const AdminCreateEmployee = () => {
     const loadOrgData = async () => {
       setOrgLoading(true)
       try {
-        const [desigs, depts, emps] = await Promise.all([
+        const [desigs, depts, emps, leaveTypes] = await Promise.all([
           organizationApi.listDesignations(),
           organizationApi.listDepartments(),
           employeeApi.list(),
+          leaveApi.getTypes(),
         ])
         setDesignations(desigs.filter((d) => d.isActive))
         setDepartments(depts.filter((d) => d.isActive))
         setExistingEmployees(emps.filter((e) => e.isActive))
+
+        const probationType =
+          leaveTypes.find((t) => t.code === 'CLP' || t.name.toLowerCase().includes('probation')) ||
+          leaveTypes.find((t) => t.code === 'CL' || t.name.toLowerCase().includes('casual')) ||
+          null
+        setClpLeaveType(probationType)
 
         if (desigs.length > 0) {
           setSelectedDesignationId(desigs[0].id)
@@ -204,11 +215,18 @@ const AdminCreateEmployee = () => {
         joiningDate,
         dateOfBirth: dateOfBirth || undefined,
         isProbation,
+        initialLeaveGrant:
+          isProbation && clpLeaveType && Number(probationLeaveDays) >= 0
+            ? {
+                leaveTypeId: clpLeaveType.id,
+                allocated: Number(probationLeaveDays),
+              }
+            : null,
       })
 
       setCreatedEmployee(newEmp)
       setActiveStep(2)
-      toast.success('Employee onboarded successfully with leave balances initialized!')
+      toast.success('Employee onboarded successfully!')
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Failed to create employee profile'
       setEmployeeError(msg)
@@ -597,9 +615,25 @@ const AdminCreateEmployee = () => {
                       disabled={employeeCreating}
                     />
                   }
-                  label="Employee on Probation Period"
+                  label={isProbation ? "Employment Type: Probation" : "Employment Type: Permanent"}
                 />
               </Grid>
+
+              {isProbation && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Casual Leave (Probation) — Days to Grant"
+                    type="number"
+                    fullWidth
+                    required
+                    inputProps={{ min: 0, step: 0.5 }}
+                    value={probationLeaveDays}
+                    onChange={(e) => setProbationLeaveDays(e.target.value)}
+                    disabled={employeeCreating}
+                    helperText="Initial probation leave allocation (default 6 days). Permanent leave types can be granted after probation."
+                  />
+                </Grid>
+              )}
 
               <Grid size={{ xs: 12 }}>
                 <Divider sx={{ my: 1.5 }} />
@@ -646,7 +680,7 @@ const AdminCreateEmployee = () => {
             Employee Successfully Onboarded!
           </Typography>
           <Typography variant="body1" color="text.secondary" mb={3}>
-            Profile created and initial annual leave allocations have been bootstrapped.
+            Employee profile successfully created and configured.
           </Typography>
 
           <Card variant="outlined" sx={{ maxWidth: 500, mx: 'auto', mb: 4, textAlign: 'left', borderRadius: 2 }}>

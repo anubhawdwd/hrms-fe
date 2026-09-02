@@ -50,12 +50,23 @@ import { attendanceApi } from '../api/attendance.api'
 import { leaveApi } from '../api/leave.api'
 import EmployeeAutocomplete from './EmployeeAutocomplete'
 import { ResetPasswordDialog } from './ResetPasswordDialog'
+import { OffboardEmployeeModal } from './OffboardEmployeeModal'
+import { ReactivateEmployeeDialog } from './ReactivateEmployeeDialog'
+import { AdminMarkLeaveDialog } from './AdminMarkLeaveDialog'
+import { AdminEditLeaveAllocationDialog } from './AdminEditLeaveAllocationDialog'
+import { AdminLeaveDayBreakdownDialog } from './AdminLeaveDayBreakdownDialog'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import AddIcon from '@mui/icons-material/Add'
+import TuneIcon from '@mui/icons-material/Tune'
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff'
+import PersonOffIcon from '@mui/icons-material/PersonOff'
+import RestoreIcon from '@mui/icons-material/Restore'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import { useUser } from '../hooks/useAuth'
 import type { EmployeeListItem } from '../types/employee.types'
 import type { Department, Team, Designation } from '../types/organization.types'
 import type { AttendanceDay } from '../types/attendance.types'
-import type { LeaveRequest } from '../types/leave.types'
+import type { LeaveRequest, LeaveType, LeaveBalance } from '../types/leave.types'
 
 /* ─── Levenshtein Distance for Typo-Tolerant Search + Select ─── */
 function levenshteinDistance(a: string, b: string): number {
@@ -113,6 +124,8 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
   const isHrOrAdmin = currentUser?.role === 'HR' || currentUser?.role === 'COMPANY_ADMIN'
   const [activeTab, setActiveTab] = useState<number>(0)
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false)
+  const [offboardModalOpen, setOffboardModalOpen] = useState<boolean>(false)
+  const [reactivateModalOpen, setReactivateModalOpen] = useState<boolean>(false)
 
   // ─── Profile Tab Form State ───
   const [firstName, setFirstName] = useState<string>('')
@@ -144,8 +157,14 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
   // ─── Leave Tab State ───
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
   const [leaveLoading, setLeaveLoading] = useState<boolean>(false)
+  const [employeeLeaveBalances, setEmployeeLeaveBalances] = useState<LeaveBalance[]>([])
+  const [leaveTypesList, setLeaveTypesList] = useState<LeaveType[]>([])
+  const [markLeaveOpen, setMarkLeaveOpen] = useState<boolean>(false)
+  const [allocationDialogOpen, setAllocationDialogOpen] = useState<boolean>(false)
+  const [selectedBalanceToEdit, setSelectedBalanceToEdit] = useState<LeaveBalance | null>(null)
   const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false)
   const [targetCancelRequest, setTargetCancelRequest] = useState<LeaveRequest | null>(null)
+  const [selectedRequestForBreakdown, setSelectedRequestForBreakdown] = useState<LeaveRequest | null>(null)
   const [cancelReason, setCancelReason] = useState<string>('')
   const [cancelSubmitting, setCancelSubmitting] = useState<boolean>(false)
 
@@ -227,15 +246,22 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     }
   }, [open, activeTab, employee, loadAttendanceForDate])
 
-  // ─── Fetch Leave Requests for Employee ───
-  const loadLeaveRequests = useCallback(async () => {
+  // ─── Fetch Leave Requests & Balances for Employee ───
+  const loadLeaveData = useCallback(async () => {
     if (!employee) return
     setLeaveLoading(true)
     try {
-      const requests = await leaveApi.getEmployeeRequests(employee.id)
+      const [requests, balances, types] = await Promise.all([
+        leaveApi.getEmployeeRequests(employee.id),
+        leaveApi.getEmployeeBalances(employee.id, new Date().getFullYear()),
+        leaveApi.getTypes(),
+      ])
       setLeaveRequests(requests || [])
+      setEmployeeLeaveBalances(balances || [])
+      setLeaveTypesList(types || [])
     } catch {
       setLeaveRequests([])
+      setEmployeeLeaveBalances([])
     } finally {
       setLeaveLoading(false)
     }
@@ -243,9 +269,9 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (open && activeTab === 2 && employee) {
-      loadLeaveRequests()
+      loadLeaveData()
     }
-  }, [open, activeTab, employee, loadLeaveRequests])
+  }, [open, activeTab, employee, loadLeaveData])
 
   // ─── Memoized Selected Objects for Autocomplete ───
   const selectedDepartment = useMemo(() => {
@@ -399,7 +425,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     try {
       await leaveApi.approve(reqId)
       toast.success('Leave request approved')
-      loadLeaveRequests()
+      loadLeaveData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to approve leave')
     }
@@ -411,7 +437,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     try {
       await leaveApi.reject(reqId)
       toast.success('Leave request rejected')
-      loadLeaveRequests()
+      loadLeaveData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to reject leave')
     }
@@ -429,7 +455,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
       setCancelModalOpen(false)
       setTargetCancelRequest(null)
       setCancelReason('')
-      loadLeaveRequests()
+      loadLeaveData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to cancel leave')
     } finally {
@@ -727,7 +753,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
               </Stack>
 
               {isHrOrAdmin && (
-                <Box sx={{ pt: 0.5 }}>
+                <Stack direction="row" spacing={1.5} sx={{ pt: 0.5 }}>
                   <Button
                     variant="outlined"
                     color="warning"
@@ -737,7 +763,28 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   >
                     Reset Password
                   </Button>
-                </Box>
+                  {employee?.isActive ? (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<PersonOffIcon />}
+                      onClick={() => setOffboardModalOpen(true)}
+                    >
+                      Deactivate / Offboard
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      startIcon={<RestoreIcon />}
+                      onClick={() => setReactivateModalOpen(true)}
+                    >
+                      Reactivate Employee
+                    </Button>
+                  )}
+                </Stack>
               )}
             </Stack>
           )}
@@ -905,20 +952,127 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
 
           {/* TAB 2: LEAVE REQUESTS */}
           {activeTab === 2 && (
-            <Stack spacing={2}>
+            <Stack spacing={2.5}>
+              {/* Header with Actions */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Leave History & Approvals ({leaveRequests.length})
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Leave Balances & History ({new Date().getFullYear()})
                 </Typography>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<RefreshIcon />}
-                  onClick={loadLeaveRequests}
-                  disabled={leaveLoading}
-                >
-                  Refresh
-                </Button>
+                <Stack direction="row" spacing={1.5}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    color="primary"
+                    startIcon={<FlightTakeoffIcon />}
+                    onClick={() => setMarkLeaveOpen(true)}
+                    disabled={leaveLoading}
+                  >
+                    Mark Leave
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={loadLeaveData}
+                    disabled={leaveLoading}
+                  >
+                    Refresh
+                  </Button>
+                </Stack>
+              </Box>
+
+              {/* ─── Leave Balances Breakdown ─── */}
+              <Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase' }}>
+                    Current Leave Balance Breakdown
+                  </Typography>
+                  <Button
+                    variant="text"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                      setSelectedBalanceToEdit(null)
+                      setAllocationDialogOpen(true)
+                    }}
+                    sx={{ fontSize: '0.75rem', py: 0 }}
+                  >
+                    Grant / Add Leave Type
+                  </Button>
+                </Box>
+
+                {employeeLeaveBalances.length === 0 ? (
+                  <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No leave policy quotas allocated for this employee in {new Date().getFullYear()}.
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => {
+                        setSelectedBalanceToEdit(null)
+                        setAllocationDialogOpen(true)
+                      }}
+                      sx={{ mt: 1 }}
+                    >
+                      Grant Leave Type
+                    </Button>
+                  </Paper>
+                ) : (
+                  <Box
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                      gap: 1.5,
+                    }}
+                  >
+                    {employeeLeaveBalances.map((bal) => (
+                      <Paper
+                        key={bal.id}
+                        variant="outlined"
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.primary.main, 0.02),
+                          border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Typography variant="body2" fontWeight={700} noWrap sx={{ maxWidth: '75%' }}>
+                            {bal.leaveType?.name || 'Leave'}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => {
+                              setSelectedBalanceToEdit(bal)
+                              setAllocationDialogOpen(true)
+                            }}
+                            title="Edit Allocation"
+                            sx={{ p: 0.25 }}
+                          >
+                            <TuneIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Used: <strong>{bal.used}</strong> / {bal.allocated}
+                          </Typography>
+                          <Chip
+                            label={`${bal.remaining} rem`}
+                            size="small"
+                            color={bal.remaining > 0 ? 'success' : 'default'}
+                            sx={{ fontWeight: 700, height: 22, fontSize: '0.75rem' }}
+                          />
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Box>
+                )}
               </Box>
 
               {leaveLoading ? (
@@ -952,6 +1106,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                     </TableHead>
                     <TableBody>
                       {leaveRequests.map((req) => {
+                        const isMultiDay = req.durationValue > 1 || (req.days && req.days.length > 1)
                         const statusColor =
                           req.status === 'APPROVED'
                             ? 'success'
@@ -997,43 +1152,60 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                               />
                             </TableCell>
                             <TableCell align="right">
-                              {req.status === 'PENDING' && (
-                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                  <Tooltip title="Approve Leave">
+                              <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center">
+                                {isMultiDay && (
+                                  <Tooltip title="View Day Breakdown & Act on Individual Days">
                                     <IconButton
                                       size="small"
-                                      color="success"
-                                      onClick={() => handleApproveLeave(req.id)}
+                                      color="primary"
+                                      onClick={() => setSelectedRequestForBreakdown(req)}
                                     >
-                                      <CheckCircleIcon fontSize="small" />
+                                      {req.status === 'PENDING' ? (
+                                        <TuneIcon fontSize="small" />
+                                      ) : (
+                                        <VisibilityIcon fontSize="small" />
+                                      )}
                                     </IconButton>
                                   </Tooltip>
-                                  <Tooltip title="Reject Leave">
-                                    <IconButton
-                                      size="small"
-                                      color="error"
-                                      onClick={() => handleRejectLeave(req.id)}
-                                    >
-                                      <CancelIcon fontSize="small" />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Stack>
-                              )}
-                              {req.status === 'APPROVED' && (
-                                <Button
-                                  variant="outlined"
-                                  color="error"
-                                  size="small"
-                                  startIcon={<DoNotDisturbIcon fontSize="small" />}
-                                  onClick={() => {
-                                    setTargetCancelRequest(req)
-                                    setCancelModalOpen(true)
-                                  }}
-                                  sx={{ textTransform: 'none', py: 0.25, fontSize: '0.75rem' }}
-                                >
-                                  HR Cancel
-                                </Button>
-                              )}
+                                )}
+                                {req.status === 'PENDING' && (
+                                  <>
+                                    <Tooltip title={isMultiDay ? "Approve All Days" : "Approve Leave"}>
+                                      <IconButton
+                                        size="small"
+                                        color="success"
+                                        onClick={() => handleApproveLeave(req.id)}
+                                      >
+                                        <CheckCircleIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title={isMultiDay ? "Reject All Days" : "Reject Leave"}>
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleRejectLeave(req.id)}
+                                      >
+                                        <CancelIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                                {req.status === 'APPROVED' && (
+                                  <Button
+                                    variant="outlined"
+                                    color="error"
+                                    size="small"
+                                    startIcon={<DoNotDisturbIcon fontSize="small" />}
+                                    onClick={() => {
+                                      setTargetCancelRequest(req)
+                                      setCancelModalOpen(true)
+                                    }}
+                                    sx={{ textTransform: 'none', py: 0.25, fontSize: '0.75rem' }}
+                                  >
+                                    HR Cancel
+                                  </Button>
+                                )}
+                              </Stack>
                             </TableCell>
                           </TableRow>
                         )
@@ -1109,6 +1281,61 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
         userId={employee.userId}
         employeeName={employee.displayName}
         email={employee.user?.email || ''}
+      />
+
+      {/* Offboard Modal */}
+      <OffboardEmployeeModal
+        open={offboardModalOpen}
+        employee={employee}
+        onClose={() => setOffboardModalOpen(false)}
+        onSuccess={() => {
+          onEmployeeUpdated({ ...employee, isActive: false })
+          onClose()
+        }}
+      />
+
+      {/* Reactivate Dialog */}
+      <ReactivateEmployeeDialog
+        open={reactivateModalOpen}
+        employee={employee}
+        onClose={() => setReactivateModalOpen(false)}
+        onSuccess={() => {
+          onEmployeeUpdated({ ...employee, isActive: true })
+          onClose()
+        }}
+      />
+
+      {/* Day Breakdown Dialog */}
+      <AdminLeaveDayBreakdownDialog
+        open={Boolean(selectedRequestForBreakdown)}
+        onClose={() => setSelectedRequestForBreakdown(null)}
+        request={selectedRequestForBreakdown}
+        employeeName={employee?.displayName}
+        onSuccess={loadLeaveData}
+      />
+
+      {/* Mark Leave Dialog */}
+      <AdminMarkLeaveDialog
+        open={markLeaveOpen}
+        onClose={() => setMarkLeaveOpen(false)}
+        employee={employee}
+        leaveTypes={leaveTypesList}
+        leaveBalances={employeeLeaveBalances}
+        onSuccess={loadLeaveData}
+      />
+
+      {/* Edit Allocation Dialog */}
+      <AdminEditLeaveAllocationDialog
+        open={allocationDialogOpen}
+        onClose={() => {
+          setAllocationDialogOpen(false)
+          setSelectedBalanceToEdit(null)
+        }}
+        employee={employee}
+        existingBalance={selectedBalanceToEdit}
+        allLeaveTypes={leaveTypesList}
+        currentBalances={employeeLeaveBalances}
+        onSuccess={loadLeaveData}
       />
     </>
   )

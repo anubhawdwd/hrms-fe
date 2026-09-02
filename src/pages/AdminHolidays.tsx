@@ -10,6 +10,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EventBusyIcon from '@mui/icons-material/EventBusy'
 import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import { useHolidays } from '../hooks/useLeave'
@@ -32,12 +33,12 @@ const AdminHolidays = () => {
     setCreating(true)
     try {
       await leaveApi.createHoliday({ name: name.trim(), date })
-      toast.success('Holiday added')
+      toast.success('Holiday added successfully')
       setName('')
       setDate('')
       reload()
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Failed to create')
+      toast.error(err?.response?.data?.message || 'Failed to create holiday')
     } finally {
       setCreating(false)
     }
@@ -71,31 +72,32 @@ const AdminHolidays = () => {
       {/* Create form */}
       <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <Typography variant="subtitle1" fontWeight={600} mb={2}>
-          Add Holiday
+          Add Company Holiday
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             label="Holiday Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             size="small"
-            sx={{ minWidth: 240 }}
+            placeholder="e.g. Diwali, Independence Day"
+            sx={{ minWidth: 240, flex: 1 }}
           />
           <TextField
             label="Date"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{ inputLabel: { shrink: true } }}
             size="small"
+            sx={{ minWidth: 180 }}
           />
           <Button
             variant="contained"
             onClick={handleCreate}
             disabled={creating}
-            startIcon={
-              creating ? <CircularProgress size={18} /> : null
-            }
+            startIcon={creating ? <CircularProgress size={18} color="inherit" /> : <EventBusyIcon />}
+            sx={{ height: 40, px: 3, fontWeight: 600, textTransform: 'none' }}
           >
             Add Holiday
           </Button>
@@ -113,7 +115,7 @@ const AdminHolidays = () => {
             No holidays configured
           </Typography>
         ) : (
-          holidays.map((h) => (
+          holidays.map((h: any) => (
             <Box
               key={h.id}
               sx={{
@@ -123,6 +125,7 @@ const AdminHolidays = () => {
                 py: 1.5,
                 borderBottom: '1px solid',
                 borderColor: 'divider',
+                '&:last-child': { borderBottom: 'none' },
               }}
             >
               <Box>

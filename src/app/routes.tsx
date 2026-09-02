@@ -14,11 +14,12 @@ import AdminCreateEmployee from '../pages/AdminCreateEmployee'
 import AdminLeaveDashboard from '../pages/AdminLeaveDashboard'
 import AdminHolidays from '../pages/AdminHolidays'
 import AdminAttendance from '../pages/AdminAttendance'
-import AdminGeoSettings from '../pages/AdminGeoSettings'
+import AdminWorkplaceSettings from '../pages/AdminWorkplaceSettings'
 import AdminOrganization from '../pages/AdminOrganization'
 import AdminAttendanceDashboard from '../pages/AdminAttendanceDashboard'
 import SuperAdminDashboard from '../pages/SuperAdminDashboard'
 import NotFound from '../pages/NotFound'
+import AdminReports from '../pages/AdminReports'
 
 const AppRoutes = () => (
   <Routes>
@@ -54,15 +55,14 @@ const AppRoutes = () => (
       <Route path="leave-dashboard" element={<AdminLeaveDashboard />} />
       <Route path="leave-approvals" element={<Navigate to="/admin/leave-dashboard" replace />} />
       <Route path="leave-approval" element={<Navigate to="/admin/leave-dashboard" replace />} />
-      <Route path="holidays" element={<AdminHolidays />} />
+                <Route path="reports" element={<AdminReports />} />
+<Route path="holidays" element={<AdminHolidays />} />
       <Route path="attendance" element={<AdminAttendance />} />
       <Route path="attendance-dashboard" element={<AdminAttendanceDashboard />} />
       <Route path="organization" element={<AdminOrganization />} />
-      <Route
-        path="organization/geo-settings"
-        element={<AdminGeoSettings />}
-      />
-      <Route path="geo-settings" element={<AdminGeoSettings />} />
+      <Route path="workplace-settings" element={<AdminWorkplaceSettings />} />
+      <Route path="organization/geo-settings" element={<Navigate to="/admin/workplace-settings" replace />} />
+      <Route path="geo-settings" element={<Navigate to="/admin/workplace-settings" replace />} />
     </Route>
 
     <Route

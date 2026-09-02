@@ -1,9 +1,10 @@
+import SummarizeIcon from '@mui/icons-material/Summarize'
 // src/pages/AdminDashboard.tsx
 import { Box, Typography, Paper, Grid, Button } from '@mui/material'
 import PeopleIcon from '@mui/icons-material/People'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
-import EditCalendarIcon from '@mui/icons-material/EditCalendar'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import BeachAccessIcon from '@mui/icons-material/BeachAccess'
 import BusinessIcon from '@mui/icons-material/Business'
 import CorporateFareIcon from '@mui/icons-material/CorporateFare'
@@ -38,7 +39,7 @@ const AdminDashboard = () => {
       title: 'Attendance Administration',
       subtitle: 'Manual attendance corrections, punch event management, and geo-fence violations',
       path: '/admin/attendance',
-      icon: <EditCalendarIcon color="primary" sx={{ fontSize: 36 }} />,
+      icon: <CalendarMonthIcon color="primary" sx={{ fontSize: 36 }} />,
     },
     {
       title: 'Leave Dashboard',
@@ -55,10 +56,16 @@ const AdminDashboard = () => {
     {
       title: 'Workplace Settings',
       subtitle: 'Configure working hours, lunch/break schedules, grace period, and office geo-fencing',
-      path: '/admin/geo-settings',
+      path: '/admin/workplace-settings',
       icon: <BusinessIcon color="primary" sx={{ fontSize: 36 }} />,
     },
-    {
+        {
+      title: 'Reports Dashboard',
+      subtitle: 'Generate, preview, and export company-scoped employee directories and dynamic leave reports',
+      path: '/admin/reports',
+      icon: <SummarizeIcon color="primary" sx={{ fontSize: 36 }} />,
+    },
+{
       title: 'Holidays',
       subtitle: 'Manage company annual holiday calendar and non-working days',
       path: '/admin/holidays',

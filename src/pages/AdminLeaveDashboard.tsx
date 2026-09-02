@@ -42,6 +42,13 @@ import type {
 } from '../types/leave.types'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
+import { AdminEmployeeLeaveProfileModal } from '../components/AdminEmployeeLeaveProfileModal'
+import { AdminLwpReportDialog } from '../components/AdminLwpReportDialog'
+import { AdminLeaveDayBreakdownDialog } from '../components/AdminLeaveDayBreakdownDialog'
+import EmployeeAutocomplete from '../components/EmployeeAutocomplete'
+import { employeeApi } from '../api/employee.api'
+import type { EmployeeListItem } from '../types/employee.types'
+import PersonSearchIcon from '@mui/icons-material/PersonSearch'
 
 /* ─── HR-Cancel Dialog Component ─── */
 interface HrCancelDialogProps {
@@ -204,6 +211,13 @@ const AdminLeaveDashboard: React.FC = () => {
   const [recentLoading, setRecentLoading] = useState<boolean>(true)
   const [recentError, setRecentError] = useState<string | null>(null)
   const [cancelTarget, setCancelTarget] = useState<LeaveRequestWithEmployee | null>(null)
+  const [selectedRequestForBreakdown, setSelectedRequestForBreakdown] = useState<LeaveRequestWithEmployee | null>(null)
+
+  // Section D: Employee-Centric Leave Management Search
+  const [employees, setEmployees] = useState<EmployeeListItem[]>([])
+  const [employeesLoading, setEmployeesLoading] = useState<boolean>(false)
+  const [selectedEmployeeForModal, setSelectedEmployeeForModal] = useState<EmployeeListItem | null>(null)
+  const [lwpReportOpen, setLwpReportOpen] = useState<boolean>(false)
 
   // Global Refresh State
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
@@ -235,6 +249,18 @@ const AdminLeaveDashboard: React.FC = () => {
     }
   }, [])
 
+  const fetchEmployees = useCallback(async () => {
+    setEmployeesLoading(true)
+    try {
+      const data = await employeeApi.list()
+      setEmployees(data || [])
+    } catch (err) {
+      console.error('Failed to load employees for leave management', err)
+    } finally {
+      setEmployeesLoading(false)
+    }
+  }, [])
+
   const fetchRecentApproved = useCallback(async () => {
     setRecentLoading(true)
     setRecentError(null)
@@ -253,7 +279,8 @@ const AdminLeaveDashboard: React.FC = () => {
     fetchTodayLeaves()
     fetchPendingRequests()
     fetchRecentApproved()
-  }, [fetchTodayLeaves, fetchPendingRequests, fetchRecentApproved])
+    fetchEmployees()
+  }, [fetchTodayLeaves, fetchPendingRequests, fetchRecentApproved, fetchEmployees])
 
   // Global Refresh Handler
   const handleGlobalRefresh = async () => {
@@ -262,6 +289,7 @@ const AdminLeaveDashboard: React.FC = () => {
       fetchTodayLeaves(),
       fetchPendingRequests(),
       fetchRecentApproved(),
+      fetchEmployees(),
     ])
     setIsRefreshing(false)
     toast.success('Leave dashboard refreshed')
@@ -354,7 +382,73 @@ const AdminLeaveDashboard: React.FC = () => {
         }
       />
 
-      {/* ─── 3 PRIMARY DASHBOARD SECTIONS ─── */}
+      {/* ─────────────────────────────────────────────────────────────────────────
+          SECTION 1: EMPLOYEE LEAVE MANAGEMENT (SEARCH & PROFILE)
+         ───────────────────────────────────────────────────────────────────────── */}
+      <Paper
+        elevation={2}
+        sx={{
+          mb: 3,
+          p: 3,
+          borderRadius: '16px',
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            mb: 2,
+            flexWrap: 'wrap',
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 38,
+                height: 38,
+                borderRadius: '10px',
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                color: 'primary.main',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <PersonSearchIcon fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700}>
+                Employee Leave Management
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Search and select an employee to view leave balances, manage quota entitlements, inspect history, or review requests
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+
+        <Box sx={{ maxWidth: 650 }}>
+          <EmployeeAutocomplete
+            value={selectedEmployeeForModal?.id || ''}
+            onChange={(_, emp) => {
+              if (emp) {
+                setSelectedEmployeeForModal(emp)
+              }
+            }}
+            employees={employees}
+            loading={employeesLoading}
+            label="Search Employee Leave Profile"
+            placeholder="Type name, #code (e.g. #101), email, designation, or team..."
+          />
+        </Box>
+      </Paper>
+
+      {/* ─── OPERATIONAL OVERVIEW SECTIONS ─── */}
       <Grid container spacing={3}>
         {/* ══════════════════════════════════════════════
             SECTION A: ON LEAVE TODAY
@@ -955,7 +1049,35 @@ const AdminLeaveDashboard: React.FC = () => {
         </Grid>
       </Grid>
 
+
+
       {/* ─── HR Cancel Dialog ─── */}
+      {/* LWP / Unpaid Leave Report Dialog */}
+      <AdminLwpReportDialog
+        open={lwpReportOpen}
+        onClose={() => setLwpReportOpen(false)}
+      />
+      {/* Employee Leave Profile Modal */}
+      {selectedEmployeeForModal && (
+        <AdminEmployeeLeaveProfileModal
+          open={Boolean(selectedEmployeeForModal)}
+          employee={selectedEmployeeForModal}
+          onClose={() => setSelectedEmployeeForModal(null)}
+          onLeaveChanged={handleGlobalRefresh}
+        />
+      )}
+
+      {/* Multi-Day Breakdown Dialog */}
+      {selectedRequestForBreakdown && (
+        <AdminLeaveDayBreakdownDialog
+          open={Boolean(selectedRequestForBreakdown)}
+          request={selectedRequestForBreakdown}
+          employeeName={selectedRequestForBreakdown.employee?.displayName}
+          onClose={() => setSelectedRequestForBreakdown(null)}
+          onSuccess={handleGlobalRefresh}
+        />
+      )}
+
       <HrCancelDialog
         open={Boolean(cancelTarget)}
         request={cancelTarget}

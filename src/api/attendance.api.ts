@@ -10,6 +10,7 @@ import type {
   HrUpdateAttendanceDayPayload,
   HrAddAttendanceEventPayload,
   AttendanceDashboardResponse,
+  MyMonthlyAttendanceResponse,
   EmployeeAttendanceOverride,
   UpsertEmployeeAttendanceOverridePayload,
 } from '../types/attendance.types'
@@ -53,6 +54,17 @@ export const attendanceApi = {
     const { data } = await apiClient.get<AttendanceDay[]>(
       '/api/attendance/range',
       { params: { from, to } }
+    )
+    return data
+  },
+
+  // ─── Employee Self-Service Monthly Overview ───
+  getMyMonthly: async (
+    month: string
+  ): Promise<MyMonthlyAttendanceResponse> => {
+    const { data } = await apiClient.get<MyMonthlyAttendanceResponse>(
+      '/api/attendance/my-month',
+      { params: { month } }
     )
     return data
   },

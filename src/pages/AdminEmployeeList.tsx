@@ -26,6 +26,10 @@ import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import AdminEmployeeQuickEditModal from '../components/AdminEmployeeQuickEditModal'
+import { OffboardEmployeeModal } from '../components/OffboardEmployeeModal'
+import { ReactivateEmployeeDialog } from '../components/ReactivateEmployeeDialog'
+import PersonOffIcon from '@mui/icons-material/PersonOff'
+import RestoreIcon from '@mui/icons-material/Restore'
 import type { EmployeeListItem } from '../types/employee.types'
 
 /* ─── Levenshtein Distance for Typo-Tolerant Search ─── */
@@ -84,6 +88,8 @@ const AdminEmployeeList = () => {
   const [selectedEmployeeForEdit, setSelectedEmployeeForEdit] =
     useState<EmployeeListItem | null>(null)
   const [quickEditOpen, setQuickEditOpen] = useState<boolean>(false)
+  const [offboardTarget, setOffboardTarget] = useState<EmployeeListItem | null>(null)
+  const [reactivateTarget, setReactivateTarget] = useState<EmployeeListItem | null>(null)
 
   // Fetch company teams setting once
   useEffect(() => {
@@ -204,8 +210,8 @@ const AdminEmployeeList = () => {
       {
         label: 'Actions',
         render: (row: EmployeeListItem) => (
-          <Stack direction="row" spacing={1}>
-            <Tooltip title="Quick Edit (Profile, Attendance, Leave)">
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Tooltip title={row.isActive ? "Quick Edit (Profile, Attendance, Leave)" : "View Details & History"}>
               <IconButton
                 size="small"
                 color="primary"
@@ -217,6 +223,28 @@ const AdminEmployeeList = () => {
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
+
+            {row.isActive ? (
+              <Tooltip title="Deactivate & Offboard Employee">
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => setOffboardTarget(row)}
+                >
+                  <PersonOffIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="Reactivate Employee">
+                <IconButton
+                  size="small"
+                  color="success"
+                  onClick={() => setReactivateTarget(row)}
+                >
+                  <RestoreIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Stack>
         ),
       }
@@ -343,6 +371,22 @@ const AdminEmployeeList = () => {
           allEmployees={rawEmployees}
         />
       )}
+
+      {/* ─── Offboard Modal ─── */}
+      <OffboardEmployeeModal
+        open={!!offboardTarget}
+        employee={offboardTarget}
+        onClose={() => setOffboardTarget(null)}
+        onSuccess={reload}
+      />
+
+      {/* ─── Reactivate Dialog ─── */}
+      <ReactivateEmployeeDialog
+        open={!!reactivateTarget}
+        employee={reactivateTarget}
+        onClose={() => setReactivateTarget(null)}
+        onSuccess={reload}
+      />
     </Box>
   )
 }

@@ -71,6 +71,8 @@ export interface WorkingHoursConfig {
   lunchMinutes: number
   breakMinutes: number
   graceMinutes: number
+  workWeekDays?: number
+  sandwichRuleEnabled?: boolean
 }
 
 export interface UpdateWorkingHoursPayload {
@@ -78,4 +80,6 @@ export interface UpdateWorkingHoursPayload {
   lunchMinutes?: number
   breakMinutes?: number
   graceMinutes?: number
+  workWeekDays?: number
+  sandwichRuleEnabled?: boolean
 }

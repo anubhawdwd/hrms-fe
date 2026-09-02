@@ -400,7 +400,7 @@ const AdminAttendance = () => {
           <Button
             variant="outlined"
             startIcon={<SettingsIcon />}
-            onClick={() => navigate('/admin/geo-settings')}
+            onClick={() => navigate('/admin/workplace-settings')}
           >
             Workplace & Geo Settings
           </Button>

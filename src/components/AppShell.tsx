@@ -1,3 +1,4 @@
+import SummarizeIcon from '@mui/icons-material/Summarize'
 // src/components/AppShell.tsx
 import React, { useState } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
@@ -20,7 +21,6 @@ import {
   List,
   ListItem,
   ListItemButton,
-  Tooltip,
 } from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -146,7 +146,12 @@ const AppShell = () => {
       return [
         { label: 'Dashboard', path: '/admin', icon: <DashboardIcon fontSize="small" /> },
         { label: 'Attendance', path: '/admin/attendance-dashboard', icon: <HowToRegIcon fontSize="small" /> },
-        { label: 'Holidays', path: '/admin/holidays', icon: <CelebrationIcon fontSize="small" /> },
+          {
+    label: 'Reports',
+    path: '/admin/reports',
+    icon: <SummarizeIcon fontSize="small" />,
+  },
+{ label: 'Holidays', path: '/admin/holidays', icon: <CelebrationIcon fontSize="small" /> },
       ]
     }
 
@@ -270,44 +275,8 @@ const AppShell = () => {
             })}
           </Stack>
 
-          {/* Right Section: HR View Switcher + User Profile Menu */}
+          {/* Right Section: User Profile Menu */}
           <Stack direction="row" spacing={1.5} alignItems="center">
-            {/* Prominent HR / Admin Dual-Mode View Switcher */}
-            {isHrOrAdmin && (
-              <Tooltip title={isEmployeeView ? 'Switch to Administrative HR Workspace' : 'Switch to Employee Self-Service Dashboard (Check-in/Out, Leave, Attendance)'}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={
-                    isEmployeeView ? (
-                      <AdminPanelSettingsIcon fontSize="small" />
-                    ) : (
-                      <BadgeIcon fontSize="small" />
-                    )
-                  }
-                  onClick={handleToggleViewMode}
-                  sx={{
-                    color: 'white',
-                    borderColor: 'rgba(255, 255, 255, 0.45)',
-                    bgcolor: 'rgba(255, 255, 255, 0.12)',
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    fontSize: { xs: '0.75rem', sm: '0.8125rem' },
-                    px: { xs: 1, sm: 1.75 },
-                    py: 0.5,
-                    borderRadius: 2,
-                    backdropFilter: 'blur(4px)',
-                    '&:hover': {
-                      borderColor: 'white',
-                      bgcolor: 'rgba(255, 255, 255, 0.25)',
-                    },
-                  }}
-                >
-                  {isEmployeeView ? 'Admin View' : 'Employee View'}
-                </Button>
-              </Tooltip>
-            )}
-
             {/* User Profile Menu Button */}
             {user && (
               <Button
@@ -422,24 +391,22 @@ const AppShell = () => {
         <Divider sx={{ my: 0.5 }} />
 
         {/* Dual Mode Switch in Menu */}
-        {isHrOrAdmin && (
-          <>
-            <MenuItem onClick={handleToggleViewMode} sx={{ py: 1 }}>
-              <ListItemIcon>
-                {isEmployeeView ? (
-                  <AdminPanelSettingsIcon fontSize="small" color="primary" />
-                ) : (
-                  <BadgeIcon fontSize="small" color="primary" />
-                )}
-              </ListItemIcon>
-              <ListItemText
-                primary={isEmployeeView ? 'Switch to Admin / HR View' : 'Switch to Employee View'}
-                primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-              />
-            </MenuItem>
-            <Divider sx={{ my: 0.5 }} />
-          </>
-        )}
+        {isHrOrAdmin && [
+          <MenuItem key="toggle-view-mode" onClick={handleToggleViewMode} sx={{ py: 1 }}>
+            <ListItemIcon>
+              {isEmployeeView ? (
+                <AdminPanelSettingsIcon fontSize="small" color="primary" />
+              ) : (
+                <BadgeIcon fontSize="small" color="primary" />
+              )}
+            </ListItemIcon>
+            <ListItemText
+              primary={isEmployeeView ? 'Switch to Admin / HR View' : 'Switch to Employee View'}
+              primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+            />
+          </MenuItem>,
+          <Divider key="toggle-view-divider" sx={{ my: 0.5 }} />,
+        ]}
 
         <MenuItem onClick={handleLogout} sx={{ color: 'error.main', py: 1 }}>
           <ListItemIcon sx={{ color: 'error.main' }}>
@@ -492,28 +459,6 @@ const AppShell = () => {
           </Box>
 
           <Divider sx={{ mb: 2 }} />
-
-          {/* Mode Switcher in Drawer */}
-          {isHrOrAdmin && (
-            <Box sx={{ mb: 2 }}>
-              <Button
-                variant="contained"
-                fullWidth
-                size="small"
-                startIcon={
-                  isEmployeeView ? (
-                    <AdminPanelSettingsIcon fontSize="small" />
-                  ) : (
-                    <BadgeIcon fontSize="small" />
-                  )
-                }
-                onClick={handleToggleViewMode}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
-              >
-                {isEmployeeView ? 'Switch to Admin / HR View' : 'Switch to Employee View'}
-              </Button>
-            </Box>
-          )}
 
           {/* Navigation Links */}
           <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, mb: 1, display: 'block', letterSpacing: 0.5 }}>

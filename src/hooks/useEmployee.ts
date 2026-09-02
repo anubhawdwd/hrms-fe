@@ -23,25 +23,12 @@ export const useMyProfile = () => {
     setError(null)
 
     try {
-      const [me, allEmployees] = await Promise.all([
-        employeeApi.getMe(),
-        employeeApi.list(),
-      ])
-
+      const me = await employeeApi.getMe()
       setProfile(me)
 
-      const manager =
-        allEmployees.find((e) => e.id === me.managerId) ?? null
-
-      const peers = me.managerId
-        ? allEmployees.filter(
-            (e) => e.managerId === me.managerId && e.id !== me.id
-          )
-        : []
-
-      const reportees = allEmployees.filter(
-        (e) => e.managerId === me.id
-      )
+      const manager = (me as any).manager ?? null
+      const peers = (me as any).peers ?? []
+      const reportees = (me as any).subordinates ?? []
 
       setHierarchy({ self: me, manager, peers, reportees })
     } catch {

@@ -188,3 +188,16 @@ export interface UpsertEmployeeAttendanceOverridePayload {
   validFrom?: string
   validTo?: string
 }
+
+export interface MyMonthlyAttendanceResponse {
+  month: string
+  startDate: string
+  endDate: string
+  totalDays: number
+  days: AttendanceDashboardDayMeta[]
+  employee: AttendanceDashboardEmployeeRow | null
+  companySummary: {
+    totalEmployees: number
+    totalWorkingDays: number
+  }
+}

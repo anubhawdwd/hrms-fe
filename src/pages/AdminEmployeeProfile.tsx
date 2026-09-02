@@ -11,6 +11,10 @@ import {
 import { useEmployeeById } from '../hooks/useEmployee'
 import PageHeader from '../components/PageHeader'
 import { ResetPasswordDialog } from '../components/ResetPasswordDialog'
+import { OffboardEmployeeModal } from '../components/OffboardEmployeeModal'
+import { ReactivateEmployeeDialog } from '../components/ReactivateEmployeeDialog'
+import PersonOffIcon from '@mui/icons-material/PersonOff'
+import RestoreIcon from '@mui/icons-material/Restore'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import { useUser } from '../hooks/useAuth'
 import { Button, Stack } from '@mui/material'
@@ -21,6 +25,8 @@ const AdminEmployeeProfile = () => {
   const { employeeId } = useParams<{ employeeId: string }>()
   const currentUser = useUser()
   const [resetModalOpen, setResetModalOpen] = useState(false)
+  const [offboardModalOpen, setOffboardModalOpen] = useState(false)
+  const [reactivateModalOpen, setReactivateModalOpen] = useState(false)
   const isHrOrAdmin = currentUser?.role === 'HR' || currentUser?.role === 'COMPANY_ADMIN'
   const { employee, loading, error } = useEmployeeById(employeeId)
 
@@ -43,15 +49,40 @@ const AdminEmployeeProfile = () => {
         action={
           <Stack direction="row" spacing={1.5} alignItems="center">
             {isHrOrAdmin && (
-              <Button
-                variant="outlined"
-                color="warning"
-                size="small"
-                startIcon={<LockResetIcon />}
-                onClick={() => setResetModalOpen(true)}
-              >
-                Reset Password
-              </Button>
+              <>
+                {employee.isActive ? (
+                  <>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      startIcon={<LockResetIcon />}
+                      onClick={() => setResetModalOpen(true)}
+                    >
+                      Reset Password
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<PersonOffIcon />}
+                      onClick={() => setOffboardModalOpen(true)}
+                    >
+                      Deactivate / Offboard
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    startIcon={<RestoreIcon />}
+                    onClick={() => setReactivateModalOpen(true)}
+                  >
+                    Reactivate Employee
+                  </Button>
+                )}
+              </>
             )}
             <Chip
               label={employee.isActive ? 'Active' : 'Inactive'}
@@ -143,6 +174,22 @@ const AdminEmployeeProfile = () => {
         userId={employee.userId}
         employeeName={employee.displayName}
         email={employee.user.email}
+      />
+
+      {/* Offboard Modal */}
+      <OffboardEmployeeModal
+        open={offboardModalOpen}
+        employee={employee}
+        onClose={() => setOffboardModalOpen(false)}
+        onSuccess={() => window.location.reload()}
+      />
+
+      {/* Reactivate Dialog */}
+      <ReactivateEmployeeDialog
+        open={reactivateModalOpen}
+        employee={employee}
+        onClose={() => setReactivateModalOpen(false)}
+        onSuccess={() => window.location.reload()}
       />
     </Box>
   )

@@ -17,7 +17,7 @@ export const employeeApi = {
 
   getById: async (id: string): Promise<EmployeeDetail> => {
     const { data } = await apiClient.get<EmployeeDetail>(
-      `/api/employees/${id}`
+      '/api/employees/' + id
     )
     return data
   },
@@ -44,7 +44,7 @@ export const employeeApi = {
     payload: UpdateEmployeeAdminPayload
   ): Promise<EmployeeDetail> => {
     const { data } = await apiClient.put<EmployeeDetail>(
-      `/api/employees/${employeeId}/admin`,
+      '/api/employees/' + employeeId + '/admin',
       payload
     )
     return data
@@ -55,17 +55,39 @@ export const employeeApi = {
     managerId?: string | null
   ): Promise<EmployeeDetail> => {
     const { data } = await apiClient.patch<EmployeeDetail>(
-      `/api/employees/${employeeId}/manager`,
+      '/api/employees/' + employeeId + '/manager',
       { managerId: managerId ?? null }
     )
     return data
   },
 
   deactivate: async (
-    employeeId: string
+    employeeId: string,
+    payload?: { effectiveDate?: string; reason?: string }
   ): Promise<{ message: string }> => {
     const { data } = await apiClient.delete<{ message: string }>(
-      `/api/employees/${employeeId}`
+      '/api/employees/' + employeeId,
+      { data: payload }
+    )
+    return data
+  },
+
+  offboard: async (
+    employeeId: string,
+    payload?: { effectiveDate?: string; reason?: string }
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.post<{ message: string }>(
+      '/api/employees/' + employeeId + '/offboard',
+      payload
+    )
+    return data
+  },
+
+  reactivate: async (
+    employeeId: string
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.post<{ message: string }>(
+      '/api/employees/' + employeeId + '/reactivate'
     )
     return data
   },

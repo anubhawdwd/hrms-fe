@@ -39,7 +39,16 @@ import {
 import BusinessIcon from '@mui/icons-material/Business'
 import GroupsIcon from '@mui/icons-material/Groups'
 import BadgeIcon from '@mui/icons-material/Badge'
-import RuleIcon from '@mui/icons-material/Rule'
+import PolicyIcon from '@mui/icons-material/Policy'
+import EventNoteIcon from '@mui/icons-material/EventNote'
+import CategoryIcon from '@mui/icons-material/Category'
+import AutorenewIcon from '@mui/icons-material/Autorenew'
+import TuneIcon from '@mui/icons-material/Tune'
+import { leaveApi } from '../api/leave.api'
+import type { LeaveType } from '../types/leave.types'
+import { AdminYearEndRolloverDialog } from '../components/AdminYearEndRolloverDialog'
+import { AdminBulkLeaveAllocationDialog } from '../components/AdminBulkLeaveAllocationDialog'
+import GroupAddIcon from '@mui/icons-material/GroupAdd'
 import PersonIcon from '@mui/icons-material/Person'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
@@ -101,6 +110,34 @@ const AdminOrganization: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false)
   const [actionLoading, setActionLoading] = useState<boolean>(false)
 
+  // ─── Leave Type Catalog States ───
+  const [leaveTypeModalOpen, setLeaveTypeModalOpen] = useState<boolean>(false)
+  const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null)
+  const [leaveTypeNameInput, setLeaveTypeNameInput] = useState<string>('')
+  const [leaveTypeCodeInput, setLeaveTypeCodeInput] = useState<string>('')
+  const [leaveTypeIsPaidInput, setLeaveTypeIsPaidInput] = useState<boolean>(true)
+  const [leaveTypeAutoGrantInput, setLeaveTypeAutoGrantInput] = useState<boolean>(false)
+  const [leaveTypeIsActiveInput, setLeaveTypeIsActiveInput] = useState<boolean>(true)
+  const [deactivateLeaveTypeTarget, setDeactivateLeaveTypeTarget] = useState<LeaveType | null>(null)
+  const [leaveTypeSearch, setLeaveTypeSearch] = useState<string>('')
+  const [leaveTypeStatusFilter, setLeaveTypeStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
+
+  // ─── Leave Policy States ───
+  const [selectedPolicyYear, setSelectedPolicyYear] = useState<number>(new Date().getFullYear())
+  const [leaveTypesList, setLeaveTypesList] = useState<LeaveType[]>([])
+  const [leavePoliciesLoading, setLeavePoliciesLoading] = useState<boolean>(false)
+  const [rolloverModalOpen, setRolloverModalOpen] = useState<boolean>(false)
+  const [bulkAllocateModalOpen, setBulkAllocateModalOpen] = useState<boolean>(false)
+  const [policyEditStates, setPolicyEditStates] = useState<Record<string, {
+    yearlyAllocation: number
+    allowCarryForward: boolean
+    maxCarryForward: number | ''
+    allowEncashment: boolean
+    probationAllowed: boolean
+    monthlyAccrual: boolean
+    saving?: boolean
+  }>>({})
+
   // ─── Filter & Search States ───
   const [deptSearch, setDeptSearch] = useState<string>('')
   const [teamSearch, setTeamSearch] = useState<string>('')
@@ -159,6 +196,35 @@ const AdminOrganization: React.FC = () => {
     }
   }
 
+  const loadLeavePoliciesData = useCallback(async (year: number) => {
+    setLeavePoliciesLoading(true)
+    try {
+      const [types, policies] = await Promise.all([
+        leaveApi.getTypes(),
+        leaveApi.getPolicies(year),
+      ])
+      setLeaveTypesList(types)
+
+      const editMap: typeof policyEditStates = {}
+      for (const t of types) {
+        const p = policies.find((pol) => pol.leaveTypeId === t.id)
+        editMap[t.id] = {
+          yearlyAllocation: p?.yearlyAllocation ?? 12,
+          allowCarryForward: p?.allowCarryForward ?? false,
+          maxCarryForward: p?.maxCarryForward ?? '',
+          allowEncashment: p?.allowEncashment ?? false,
+          probationAllowed: p?.probationAllowed ?? false,
+          monthlyAccrual: p?.monthlyAccrual ?? false,
+        }
+      }
+      setPolicyEditStates(editMap)
+    } catch {
+      toast.error('Failed to load leave policy configurations')
+    } finally {
+      setLeavePoliciesLoading(false)
+    }
+  }, [])
+
   /* ─── Fetch All Organization Data ─── */
   const loadAllData = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true)
@@ -170,6 +236,7 @@ const AdminOrganization: React.FC = () => {
         employeeApi.list().catch(() => []),
         attendanceApi.listEmployeeOverrides().catch(() => []),
         organizationApi.getTeamsSetting().catch(() => ({ usesTeams: false })),
+        loadLeavePoliciesData(selectedPolicyYear).catch(() => null),
       ])
 
       setUsesTeams(teamsSetting?.usesTeams ?? false)
@@ -196,15 +263,25 @@ const AdminOrganization: React.FC = () => {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [loadLeavePoliciesData, selectedPolicyYear])
 
   useEffect(() => {
     loadAllData()
   }, [loadAllData])
 
+  // ─── Tab-Switch Effect for Leave Types (Tab 4) & Policies (Tab 5) ───
+  useEffect(() => {
+    if (activeTab === 4 || activeTab === 5) {
+      loadLeavePoliciesData(selectedPolicyYear)
+    }
+  }, [activeTab, selectedPolicyYear, loadLeavePoliciesData])
+
   const handleRefresh = async () => {
     setRefreshing(true)
-    await loadAllData(true)
+    await Promise.all([
+      loadAllData(true),
+      loadLeavePoliciesData(selectedPolicyYear),
+    ])
     toast.success('Organization data refreshed')
   }
 
@@ -322,6 +399,117 @@ const AdminOrganization: React.FC = () => {
       toast.error(err?.response?.data?.message || 'Failed to deactivate team')
     } finally {
       setActionLoading(false)
+    }
+  }
+
+  // ─── Leave Type Catalog Actions ───
+  const handleOpenCreateLeaveType = () => {
+    setEditingLeaveType(null)
+    setLeaveTypeNameInput('')
+    setLeaveTypeCodeInput('')
+    setLeaveTypeIsPaidInput(true)
+    setLeaveTypeAutoGrantInput(false)
+    setLeaveTypeIsActiveInput(true)
+    setLeaveTypeModalOpen(true)
+  }
+
+  const handleOpenEditLeaveType = (type: LeaveType) => {
+    setEditingLeaveType(type)
+    setLeaveTypeNameInput(type.name)
+    setLeaveTypeCodeInput(type.code)
+    setLeaveTypeIsPaidInput(type.isPaid)
+    setLeaveTypeAutoGrantInput(type.autoGrantOnOnboarding ?? false)
+    setLeaveTypeIsActiveInput(type.isActive)
+    setLeaveTypeModalOpen(true)
+  }
+
+  const handleSaveLeaveType = async () => {
+    if (!leaveTypeNameInput.trim() || !leaveTypeCodeInput.trim()) {
+      toast.error('Leave type name and code are required')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      if (editingLeaveType) {
+        await leaveApi.updateType(editingLeaveType.id, {
+          name: leaveTypeNameInput.trim(),
+          code: leaveTypeCodeInput.trim().toUpperCase(),
+          isPaid: leaveTypeIsPaidInput,
+          autoGrantOnOnboarding: leaveTypeAutoGrantInput,
+          isActive: leaveTypeIsActiveInput,
+        })
+        toast.success('Leave type updated successfully')
+      } else {
+        await leaveApi.createType({
+          name: leaveTypeNameInput.trim(),
+          code: leaveTypeCodeInput.trim().toUpperCase(),
+          isPaid: leaveTypeIsPaidInput,
+          autoGrantOnOnboarding: leaveTypeAutoGrantInput,
+          isActive: leaveTypeIsActiveInput,
+        })
+        toast.success('Leave type created successfully')
+      }
+
+      setLeaveTypeModalOpen(false)
+      // Reload both leave types and policies
+      await loadLeavePoliciesData(selectedPolicyYear)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to save leave type')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleToggleLeaveTypeActive = async (type: LeaveType) => {
+    setActionLoading(true)
+    try {
+      await leaveApi.updateType(type.id, { isActive: !type.isActive })
+      toast.success(`Leave type ${type.isActive ? 'deactivated' : 'reactivated'} successfully`)
+      setDeactivateLeaveTypeTarget(null)
+      await loadLeavePoliciesData(selectedPolicyYear)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update leave type status')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+
+
+  const handleSaveLeavePolicy = async (leaveTypeId: string) => {
+    const edit = policyEditStates[leaveTypeId]
+    if (!edit) return
+
+    setPolicyEditStates((prev) => ({
+      ...prev,
+      [leaveTypeId]: { ...prev[leaveTypeId], saving: true },
+    }))
+
+    try {
+      await leaveApi.upsertPolicy({
+        leaveTypeId,
+        year: selectedPolicyYear,
+        yearlyAllocation: Number(edit.yearlyAllocation),
+        allowCarryForward: edit.allowCarryForward,
+        maxCarryForward:
+          edit.allowCarryForward && edit.maxCarryForward !== ''
+            ? Number(edit.maxCarryForward)
+            : null,
+        allowEncashment: edit.allowEncashment,
+        probationAllowed: edit.probationAllowed,
+        monthlyAccrual: edit.monthlyAccrual,
+      })
+
+      const typeName = leaveTypesList.find((t) => t.id === leaveTypeId)?.name || 'Leave'
+      toast.success(`Updated policy for ${typeName} (${selectedPolicyYear})`)
+      loadLeavePoliciesData(selectedPolicyYear)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to save policy')
+      setPolicyEditStates((prev) => ({
+        ...prev,
+        [leaveTypeId]: { ...prev[leaveTypeId], saving: false },
+      }))
     }
   }
 
@@ -607,7 +795,7 @@ const AdminOrganization: React.FC = () => {
             }
           />
           <Tab
-            icon={<RuleIcon fontSize="small" />}
+            icon={<PolicyIcon fontSize="small" />}
             iconPosition="start"
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -620,6 +808,36 @@ const AdminOrganization: React.FC = () => {
                   }
                   size="small"
                   color="primary"
+                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 700 }}
+                />
+              </Box>
+            }
+          />
+          <Tab
+            icon={<CategoryIcon fontSize="small" />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <span>Leave Types</span>
+                <Chip
+                  label={`${leaveTypesList.length} Types`}
+                  size="small"
+                  color="primary"
+                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 700 }}
+                />
+              </Box>
+            }
+          />
+          <Tab
+            icon={<EventNoteIcon fontSize="small" />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <span>Leave Policies</span>
+                <Chip
+                  label={String(selectedPolicyYear)}
+                  size="small"
+                  color="secondary"
                   sx={{ height: 20, fontSize: '0.75rem', fontWeight: 700 }}
                 />
               </Box>
@@ -884,7 +1102,7 @@ const AdminOrganization: React.FC = () => {
                                     color="secondary"
                                     onClick={() => handleOpenPolicyModal(desig)}
                                   >
-                                    <RuleIcon fontSize="small" />
+                                    <PolicyIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Edit / Rename">
@@ -1293,7 +1511,7 @@ const AdminOrganization: React.FC = () => {
                                   <Button
                                     variant="outlined"
                                     size="small"
-                                    startIcon={<RuleIcon fontSize="small" />}
+                                    startIcon={<PolicyIcon fontSize="small" />}
                                     onClick={() => handleOpenPolicyModal(desig)}
                                     sx={{ borderRadius: '8px', fontSize: '0.75rem' }}
                                   >
@@ -1468,6 +1686,415 @@ const AdminOrganization: React.FC = () => {
             </Paper>
           )}
 
+          {/* ══════════════════════════════════════════════
+              TAB 4: LEAVE POLICIES & CARRY-FORWARD
+             ══════════════════════════════════════════════ */}
+                    {/* ══════════════════════════════════════════════
+              TAB 4: LEAVE TYPES CATALOG
+             ══════════════════════════════════════════════ */}
+          {activeTab === 4 && (
+            <Paper elevation={2} sx={{ p: 3, borderRadius: '16px' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <Box>
+                  <Typography variant="h6" fontWeight={700}>
+                    Company Leave Types Catalog
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Define and customize company leave categories, codes, paid status, and onboarding defaults
+                  </Typography>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenCreateLeaveType}
+                  sx={{ borderRadius: '8px', px: 2.5 }}
+                >
+                  Add Leave Type
+                </Button>
+              </Box>
+
+              {/* Filters */}
+              <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+                <TextField
+                  placeholder="Search leave types..."
+                  size="small"
+                  value={leaveTypeSearch}
+                  onChange={(e) => setLeaveTypeSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ width: { xs: '100%', sm: 260 } }}
+                />
+
+                <TextField
+                  select
+                  size="small"
+                  label="Status"
+                  value={leaveTypeStatusFilter}
+                  onChange={(e) => setLeaveTypeStatusFilter(e.target.value as any)}
+                  sx={{ width: 150 }}
+                >
+                  <MenuItem value="ALL">All Types</MenuItem>
+                  <MenuItem value="ACTIVE">Active Only</MenuItem>
+                  <MenuItem value="INACTIVE">Inactive Only</MenuItem>
+                </TextField>
+              </Box>
+
+              {leavePoliciesLoading ? (
+                <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+                  <CircularProgress size={32} />
+                </Box>
+              ) : (
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>Name & Code</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Compensation</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Onboarding Default</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {leaveTypesList
+                        .filter((t) => {
+                          if (leaveTypeStatusFilter === 'ACTIVE') return t.isActive
+                          if (leaveTypeStatusFilter === 'INACTIVE') return !t.isActive
+                          return true
+                        })
+                        .filter((t) =>
+                          matchesSearch(`${t.name} ${t.code}`, leaveTypeSearch)
+                        )
+                        .map((type) => (
+                          <TableRow key={type.id} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={700}>
+                                {type.name}
+                              </Typography>
+                              <Chip
+                                label={type.code}
+                                size="small"
+                                sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600, mt: 0.5 }}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              <Chip
+                                label={type.isPaid ? 'Paid Leave' : 'Unpaid Leave'}
+                                size="small"
+                                color={type.isPaid ? 'success' : 'default'}
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600 }}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              {type.autoGrantOnOnboarding ? (
+                                <Chip
+                                  label="Auto Grant"
+                                  size="small"
+                                  color="info"
+                                  sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600 }}
+                                />
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">
+                                  Manual Grant Only
+                                </Typography>
+                              )}
+                            </TableCell>
+
+                            <TableCell>
+                              <Chip
+                                label={type.isActive ? 'Active' : 'Inactive'}
+                                size="small"
+                                color={type.isActive ? 'success' : 'error'}
+                                sx={{ height: 22, fontSize: '0.75rem', fontWeight: 600 }}
+                              />
+                            </TableCell>
+
+                            <TableCell align="right">
+                              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  startIcon={<EditIcon fontSize="small" />}
+                                  onClick={() => handleOpenEditLeaveType(type)}
+                                  sx={{ borderRadius: '8px', fontSize: '0.75rem' }}
+                                >
+                                  Edit
+                                </Button>
+
+                                <Button
+                                  variant="outlined"
+                                  color={type.isActive ? 'error' : 'success'}
+                                  size="small"
+                                  onClick={() =>
+                                    type.isActive
+                                      ? setDeactivateLeaveTypeTarget(type)
+                                      : handleToggleLeaveTypeActive(type)
+                                  }
+                                  sx={{ borderRadius: '8px', fontSize: '0.75rem' }}
+                                >
+                                  {type.isActive ? 'Deactivate' : 'Reactivate'}
+                                </Button>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          )}
+
+          {/* ══════════════════════════════════════════════
+              TAB 5: LEAVE POLICIES & CARRY-FORWARD
+             ══════════════════════════════════════════════ */}
+          {activeTab === 5 && (
+            <Paper elevation={2} sx={{ p: 3, borderRadius: '16px' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 2,
+                  mb: 3,
+                }}
+              >
+                <Box>
+                  <Typography variant="h6" fontWeight={700}>
+                    Company Leave Policies ({selectedPolicyYear})
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Configure yearly allocations, carry-forward caps, and renewal rules per leave type
+                  </Typography>
+                </Box>
+
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <TextField
+                    select
+                    size="small"
+                    label="Policy Year"
+                    value={selectedPolicyYear}
+                    onChange={(e) => {
+                      const yr = Number(e.target.value)
+                      setSelectedPolicyYear(yr)
+                      loadLeavePoliciesData(yr)
+                    }}
+                    sx={{ width: 140 }}
+                  >
+                    {[2025, 2026, 2027, 2028, 2029].map((yr) => (
+                      <MenuItem key={yr} value={yr}>
+                        {yr}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<GroupAddIcon />}
+                    onClick={() => setBulkAllocateModalOpen(true)}
+                    sx={{ fontWeight: 600 }}
+                  >
+                    Bulk Allocate Leaves
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<AutorenewIcon />}
+                    onClick={() => setRolloverModalOpen(true)}
+                    sx={{ fontWeight: 600 }}
+                  >
+                    Run Year-End Rollover
+                  </Button>
+                </Stack>
+              </Box>
+
+              {leavePoliciesLoading ? (
+                <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+                  <CircularProgress size={32} />
+                </Box>
+              ) : leaveTypesList.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  No leave types configured for this company.
+                </Alert>
+              ) : (
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>Leave Type</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Yearly Allocation</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Allow Carry-Forward</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Max Carry-Forward</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Encashment / Probation</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {leaveTypesList.map((type) => {
+                        const edit = policyEditStates[type.id] || {
+                          yearlyAllocation: 12,
+                          allowCarryForward: false,
+                          maxCarryForward: '',
+                          allowEncashment: false,
+                          probationAllowed: false,
+                          monthlyAccrual: false,
+                        }
+
+                        return (
+                          <TableRow key={type.id} hover>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={700}>
+                                {type.name}
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                                <Chip label={type.code} size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />
+                                <Chip
+                                  label={type.isPaid ? 'Paid' : 'Unpaid'}
+                                  size="small"
+                                  color={type.isPaid ? 'success' : 'default'}
+                                  variant="outlined"
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              </Box>
+                            </TableCell>
+
+                            <TableCell>
+                              <TextField
+                                type="number"
+                                size="small"
+                                inputProps={{ min: 0, step: 0.5 }}
+                                value={edit.yearlyAllocation}
+                                onChange={(e) =>
+                                  setPolicyEditStates((prev) => ({
+                                    ...prev,
+                                    [type.id]: { ...prev[type.id], yearlyAllocation: Number(e.target.value) },
+                                  }))
+                                }
+                                sx={{ width: 100 }}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={edit.allowCarryForward}
+                                    onChange={(e) =>
+                                      setPolicyEditStates((prev) => ({
+                                        ...prev,
+                                        [type.id]: {
+                                          ...prev[type.id],
+                                          allowCarryForward: e.target.checked,
+                                          maxCarryForward: e.target.checked ? (prev[type.id]?.maxCarryForward || 5) : '',
+                                        },
+                                      }))
+                                    }
+                                    color="primary"
+                                  />
+                                }
+                                label={edit.allowCarryForward ? 'Enabled' : 'Disabled'}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              <TextField
+                                type="number"
+                                size="small"
+                                placeholder="Unlimited"
+                                disabled={!edit.allowCarryForward}
+                                inputProps={{ min: 0, step: 1 }}
+                                value={edit.maxCarryForward}
+                                onChange={(e) =>
+                                  setPolicyEditStates((prev) => ({
+                                    ...prev,
+                                    [type.id]: {
+                                      ...prev[type.id],
+                                      maxCarryForward: e.target.value === '' ? '' : Number(e.target.value),
+                                    },
+                                  }))
+                                }
+                                helperText={edit.allowCarryForward ? 'Cap (days) or blank' : 'Carry forward off'}
+                                sx={{ width: 120 }}
+                              />
+                            </TableCell>
+
+                            <TableCell>
+                              <Stack spacing={0.5}>
+                                <FormControlLabel
+                                  control={
+                                    <Switch
+                                      size="small"
+                                      checked={edit.allowEncashment}
+                                      onChange={(e) =>
+                                        setPolicyEditStates((prev) => ({
+                                          ...prev,
+                                          [type.id]: { ...prev[type.id], allowEncashment: e.target.checked },
+                                        }))
+                                      }
+                                    />
+                                  }
+                                  label={<Typography variant="caption">Encashment</Typography>}
+                                />
+                                <FormControlLabel
+                                  control={
+                                    <Switch
+                                      size="small"
+                                      checked={edit.probationAllowed}
+                                      onChange={(e) =>
+                                        setPolicyEditStates((prev) => ({
+                                          ...prev,
+                                          [type.id]: { ...prev[type.id], probationAllowed: e.target.checked },
+                                        }))
+                                      }
+                                    />
+                                  }
+                                  label={<Typography variant="caption">Probation Allowed</Typography>}
+                                />
+                              </Stack>
+                            </TableCell>
+
+                            <TableCell align="right">
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={edit.saving ? <CircularProgress size={14} /> : <TuneIcon />}
+                                disabled={edit.saving}
+                                onClick={() => handleSaveLeavePolicy(type.id)}
+                                sx={{ fontWeight: 600 }}
+                              >
+                                {edit.saving ? 'Saving...' : 'Save'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          )}
+
           {/* ─── CROSS-LINK FOOTER TO WORKPLACE SETTINGS ─── */}
           <Paper
             variant="outlined"
@@ -1496,7 +2123,7 @@ const AdminOrganization: React.FC = () => {
               variant="outlined"
               size="small"
               endIcon={<ArrowForwardIcon />}
-              onClick={() => navigate('/admin/geo-settings')}
+              onClick={() => navigate('/admin/workplace-settings')}
               sx={{ borderRadius: '8px' }}
             >
               Open Workplace Settings
@@ -1791,6 +2418,179 @@ const AdminOrganization: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* 8. Add/Edit Leave Type Modal */}
+      <Dialog
+        open={leaveTypeModalOpen}
+        onClose={() => !actionLoading && setLeaveTypeModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {editingLeaveType ? 'Edit Leave Type' : 'Create New Leave Type'}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <TextField
+              label="Leave Type Name"
+              placeholder="e.g. Bereavement Leave, Privilege Leave"
+              value={leaveTypeNameInput}
+              onChange={(e) => setLeaveTypeNameInput(e.target.value)}
+              fullWidth
+              required
+              size="small"
+            />
+
+            <TextField
+              label="Leave Code"
+              placeholder="e.g. BL, PL, SL"
+              value={leaveTypeCodeInput}
+              onChange={(e) => setLeaveTypeCodeInput(e.target.value.toUpperCase())}
+              fullWidth
+              required
+              size="small"
+              helperText="Unique uppercase identifier for this leave type"
+            />
+
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={leaveTypeIsPaidInput}
+                    onChange={(e) => setLeaveTypeIsPaidInput(e.target.checked)}
+                    color="success"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {leaveTypeIsPaidInput ? 'Paid Leave' : 'Unpaid Leave'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Whether salary is paid during this leave
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={leaveTypeAutoGrantInput}
+                    onChange={(e) => setLeaveTypeAutoGrantInput(e.target.checked)}
+                    color="info"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      Auto Grant on Onboarding
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Grant automatically during new employee onboarding
+                    </Typography>
+                  </Box>
+                }
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={leaveTypeIsActiveInput}
+                    onChange={(e) => setLeaveTypeIsActiveInput(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      {leaveTypeIsActiveInput ? 'Active' : 'Inactive'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Available for allocation and applications
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setLeaveTypeModalOpen(false)}
+            disabled={actionLoading}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveLeaveType}
+            variant="contained"
+            disabled={actionLoading || !leaveTypeNameInput.trim() || !leaveTypeCodeInput.trim()}
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : null}
+            sx={{ borderRadius: '8px', px: 3 }}
+          >
+            {actionLoading ? 'Saving...' : editingLeaveType ? 'Save Changes' : 'Create Leave Type'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 9. Deactivate Leave Type Confirmation Modal */}
+      <Dialog
+        open={Boolean(deactivateLeaveTypeTarget)}
+        onClose={() => !actionLoading && setDeactivateLeaveTypeTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Deactivate Leave Type</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Are you sure you want to deactivate{' '}
+            <strong>{deactivateLeaveTypeTarget?.name} ({deactivateLeaveTypeTarget?.code})</strong>?
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Historical leave records and balances will remain safely preserved. The leave type will no longer appear for new applications.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setDeactivateLeaveTypeTarget(null)}
+            disabled={actionLoading}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => deactivateLeaveTypeTarget && handleToggleLeaveTypeActive(deactivateLeaveTypeTarget)}
+            color="error"
+            variant="contained"
+            disabled={actionLoading}
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : null}
+            sx={{ borderRadius: '8px', px: 3 }}
+          >
+            {actionLoading ? 'Deactivating...' : 'Confirm Deactivate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk & Rollover Dialogs */}
+      <AdminBulkLeaveAllocationDialog
+        open={bulkAllocateModalOpen}
+        onClose={() => setBulkAllocateModalOpen(false)}
+        leaveTypes={leaveTypesList}
+        initialYear={selectedPolicyYear}
+        onSuccess={() => loadLeavePoliciesData(selectedPolicyYear)}
+      />
+
+      <AdminYearEndRolloverDialog
+        open={rolloverModalOpen}
+        onClose={() => setRolloverModalOpen(false)}
+        onSuccess={() => loadLeavePoliciesData(selectedPolicyYear)}
+      />
 
       {/* 7. Designation Attendance Policy Dialog */}
       <Dialog

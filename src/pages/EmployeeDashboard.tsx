@@ -45,6 +45,7 @@ import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import EmptyState from '../components/EmptyState'
 import ApplyLeaveModal from '../components/ApplyLeaveModal'
+import { EmployeeMonthlyOverviewModal } from '../components/EmployeeMonthlyOverviewModal'
 import LeaveRequestList from '../components/LeaveRequestList'
 
 /* ─── Section Header Component ─── */
@@ -255,6 +256,7 @@ const EmployeeDashboard = () => {
 
   // Leave modal
   const [leaveModalOpen, setLeaveModalOpen] = useState(false)
+  const [monthlyOverviewOpen, setMonthlyOverviewOpen] = useState(false)
 
   // Configurable display workplace working hours & scheduled presence
   const [workingHoursConfig, setWorkingHoursConfig] = useState<WorkingHoursConfig>({
@@ -847,7 +849,21 @@ const EmployeeDashboard = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<CalendarMonthIcon fontSize="small" />}
+                  onClick={() => setMonthlyOverviewOpen(true)}
+                  sx={{
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    fontSize: '0.8125rem',
+                  }}
+                >
+                  Monthly Overview
+                </Button>
                 <IconButton
                   onClick={() => setWeekOffset((w) => w - 1)}
                   size="small"
@@ -1173,13 +1189,13 @@ const EmployeeDashboard = () => {
               }
             />
 
-            {balances.length === 0 ? (
+            {balances.filter((b) => b.allocated > 0 || b.carriedForward > 0 || b.used > 0 || b.remaining > 0).length === 0 ? (
               <Typography color="text.secondary" sx={{ py: 2 }}>
                 No leave balances configured
               </Typography>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {balances.map((b) => {
+                {balances.filter((b) => b.allocated > 0 || b.carriedForward > 0 || b.used > 0 || b.remaining > 0).map((b) => {
                   const usedPercent =
                     b.allocated > 0
                       ? ((b.allocated - b.remaining) / b.allocated) * 100
@@ -1530,6 +1546,11 @@ const EmployeeDashboard = () => {
       </Grid>
 
       {/* ─── Apply Leave Modal ─── */}
+      <EmployeeMonthlyOverviewModal
+        open={monthlyOverviewOpen}
+        onClose={() => setMonthlyOverviewOpen(false)}
+      />
+
       <ApplyLeaveModal
         open={leaveModalOpen}
         onClose={() => setLeaveModalOpen(false)}

@@ -17,7 +17,11 @@ export const useLeaveBalances = (year: number) => {
     setLoading(true)
     try {
       const data = await leaveApi.getMyBalances(year)
-      setBalances(data)
+      // Display filter: Only show leave types genuinely allocated, rolled-over, or historically used
+      const activeOnly = (data || []).filter(
+        (b) => b.allocated > 0 || b.used > 0 || b.carriedForward > 0
+      )
+      setBalances(activeOnly)
     } catch {
       setBalances([])
     } finally {

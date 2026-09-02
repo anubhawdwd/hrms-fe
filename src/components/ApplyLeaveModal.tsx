@@ -1,5 +1,5 @@
 // src/components/ApplyLeaveModal.tsx
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -11,20 +11,15 @@ import {
   Box,
   CircularProgress,
   Typography,
-  ToggleButtonGroup,
-  ToggleButton,
   alpha,
   useTheme,
   Divider,
   Chip,
 } from '@mui/material'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import AccessTimeIcon from '@mui/icons-material/AccessTime'
-import TodayIcon from '@mui/icons-material/Today'
-import MoreTimeIcon from '@mui/icons-material/MoreTime'
-import { useLeaveTypes } from '../hooks/useLeave'
+import { useLeaveTypes, useLeaveBalances } from '../hooks/useLeave'
 import { leaveApi } from '../api/leave.api'
-import type { LeaveDurationType, ApplyLeaveRequest } from '../types/leave.types'
+import type { ApplyLeaveRequest } from '../types/leave.types'
 
 interface Props {
   open: boolean
@@ -32,126 +27,51 @@ interface Props {
   onSuccess: () => void
 }
 
-const TIME_OPTIONS = (() => {
-  const options: string[] = []
-  for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      options.push(
-        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-      )
-    }
-  }
-  return options
-})()
-
-const formatTimeLabel = (time: string) => {
-  const parts = time.split(':')
-  const h = parseInt(parts[0] ?? '0', 10)
-  const m = parts[1] ?? '00'
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
-  return `${h12}:${m} ${ampm}`
-}
-
-type HalfDaySlot = 'FIRST_HALF' | 'SECOND_HALF'
-type QuarterDaySlot = 'Q1' | 'Q2' | 'Q3' | 'Q4'
-
-const HALF_DAY_OPTIONS: { value: HalfDaySlot; label: string; time: string }[] = [
-  { value: 'FIRST_HALF', label: '1st Half', time: '09:00 – 01:00 PM' },
-  { value: 'SECOND_HALF', label: '2nd Half', time: '02:00 – 06:00 PM' },
-]
-
-const QUARTER_DAY_OPTIONS: { value: QuarterDaySlot; label: string; time: string }[] = [
-  { value: 'Q1', label: '1st Quarter', time: '09:00 – 11:00 AM' },
-  { value: 'Q2', label: '2nd Quarter', time: '11:00 AM – 01:00 PM' },
-  { value: 'Q3', label: '3rd Quarter', time: '02:00 – 04:00 PM' },
-  { value: 'Q4', label: '4th Quarter', time: '04:00 – 06:00 PM' },
-]
-
-const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
+export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) => {
   const theme = useTheme()
+  const currentYear = new Date().getFullYear()
   const { types, loading: typesLoading } = useLeaveTypes()
+  const { balances } = useLeaveBalances(currentYear)
+
+  // Filter available leave types:
+  // 1. Unpaid Leave / LWP is ALWAYS available (requires no allocation, balance > 0 not required)
+  // 2. Paid leaves must have available entitlement (remaining > 0)
+  const availableLeaveTypes = useMemo(() => {
+    return types.filter((t) => {
+      if (t.isActive === false) return false
+      if (t.isPaid === false || t.code === 'LWP') return true
+
+      const b = balances.find(
+        (bal) =>
+          bal.leaveTypeId === t.id ||
+          bal.leaveType?.name === t.name ||
+          bal.leaveType?.code === t.code
+      )
+      return b && b.remaining > 0
+    })
+  }, [types, balances])
 
   const [leaveTypeId, setLeaveTypeId] = useState('')
-  const [durationType, setDurationType] = useState<LeaveDurationType>('FULL_DAY')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [halfSlot, setHalfSlot] = useState<HalfDaySlot | ''>('')
-  const [quarterSlot, setQuarterSlot] = useState<QuarterDaySlot | ''>('')
-  const [startTime, setStartTime] = useState('')
-  const [endTime, setEndTime] = useState('')
   const [reason, setReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Computed duration summary
+  // Computed duration summary (Full Day)
   const durationSummary = useMemo(() => {
-    switch (durationType) {
-      case 'FULL_DAY': {
-        if (!fromDate || !toDate) return null
-        const from = new Date(fromDate)
-        const to = new Date(toDate)
-        if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return null
-        const diff = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1
-        return `${diff} day${diff > 1 ? 's' : ''}`
-      }
-      case 'HALF_DAY': {
-        if (!halfSlot) return null
-        const opt = HALF_DAY_OPTIONS.find((o) => o.value === halfSlot)
-        return opt ? `Half Day — ${opt.label}` : null
-      }
-      case 'QUARTER_DAY': {
-        if (!quarterSlot) return null
-        const opt = QUARTER_DAY_OPTIONS.find((o) => o.value === quarterSlot)
-        return opt ? `Quarter Day — ${opt.label}` : null
-      }
-      case 'HOURLY': {
-        if (!startTime || !endTime) return null
-        const sp = startTime.split(':').map(Number)
-        const ep = endTime.split(':').map(Number)
-        const startMins = (sp[0] ?? 0) * 60 + (sp[1] ?? 0)
-        const endMins = (ep[0] ?? 0) * 60 + (ep[1] ?? 0)
-        if (endMins <= startMins) return null
-        const diffMins = endMins - startMins
-        const hours = Math.floor(diffMins / 60)
-        const mins = diffMins % 60
-        const parts: string[] = []
-        if (hours > 0) parts.push(`${hours}h`)
-        if (mins > 0) parts.push(`${mins}m`)
-        return parts.join(' ')
-      }
-      default:
-        return null
-    }
-  }, [durationType, fromDate, toDate, halfSlot, quarterSlot, startTime, endTime])
-
-  const handleDurationTypeChange = (
-    _: React.MouseEvent<HTMLElement>,
-    newType: LeaveDurationType | null
-  ) => {
-    if (newType) {
-      setDurationType(newType)
-      setError(null)
-      // Reset sub-selections
-      setHalfSlot('')
-      setQuarterSlot('')
-      setStartTime('')
-      setEndTime('')
-      if (newType !== 'FULL_DAY') {
-        setToDate('')
-      }
-    }
-  }
+    if (!fromDate || !toDate) return null
+    const from = new Date(fromDate)
+    const to = new Date(toDate)
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return null
+    const diff = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    return `${diff} full day${diff > 1 ? 's' : ''}`
+  }, [fromDate, toDate])
 
   const resetForm = () => {
     setLeaveTypeId('')
     setFromDate('')
     setToDate('')
-    setDurationType('FULL_DAY')
-    setHalfSlot('')
-    setQuarterSlot('')
-    setStartTime('')
-    setEndTime('')
     setReason('')
     setError(null)
   }
@@ -164,44 +84,16 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
       return
     }
     if (!fromDate) {
-      setError('Please select a date')
+      setError('Please select a start date')
       return
     }
-
-    // Validate per type
-    switch (durationType) {
-      case 'FULL_DAY':
-        if (!toDate) {
-          setError('Please select an end date')
-          return
-        }
-        if (new Date(fromDate) > new Date(toDate)) {
-          setError('End date must be on or after start date')
-          return
-        }
-        break
-      case 'HALF_DAY':
-        if (!halfSlot) {
-          setError('Please select 1st half or 2nd half')
-          return
-        }
-        break
-      case 'QUARTER_DAY':
-        if (!quarterSlot) {
-          setError('Please select a quarter')
-          return
-        }
-        break
-      case 'HOURLY':
-        if (!startTime || !endTime) {
-          setError('Please select start and end time')
-          return
-        }
-        if (startTime >= endTime) {
-          setError('End time must be after start time')
-          return
-        }
-        break
+    if (!toDate) {
+      setError('Please select an end date')
+      return
+    }
+    if (new Date(fromDate) > new Date(toDate)) {
+      setError('End date must be on or after start date')
+      return
     }
 
     setSubmitting(true)
@@ -210,17 +102,8 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
       const payload: ApplyLeaveRequest = {
         leaveTypeId,
         fromDate,
-        toDate: durationType === 'FULL_DAY' ? toDate : fromDate,
-        durationType,
-      }
-
-      if (durationType === 'HALF_DAY') {
-        payload.slot = halfSlot
-      } else if (durationType === 'QUARTER_DAY') {
-        payload.slot = quarterSlot
-      } else if (durationType === 'HOURLY') {
-        payload.startTime = startTime
-        payload.endTime = endTime
+        toDate,
+        durationType: 'FULL_DAY',
       }
 
       if (reason.trim()) {
@@ -241,12 +124,6 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
     setError(null)
     onClose()
   }
-
-  // Filter end times
-  const availableEndTimes = useMemo(() => {
-    if (!startTime) return TIME_OPTIONS
-    return TIME_OPTIONS.filter((t) => t > startTime)
-  }, [startTime])
 
   return (
     <Dialog
@@ -288,82 +165,14 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
             Apply Leave
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Select type and duration for your leave request
+            Select leave type and full-day dates for your request
           </Typography>
         </Box>
       </DialogTitle>
 
       <DialogContent sx={{ px: 3, pt: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* ─── Duration Type Toggle ─── */}
-          <Box>
-            <Typography
-              variant="caption"
-              fontWeight={600}
-              color="text.secondary"
-              sx={{
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                mb: 1,
-                display: 'block',
-              }}
-            >
-              Leave Mode
-            </Typography>
-            <ToggleButtonGroup
-              value={durationType}
-              exclusive
-              onChange={handleDurationTypeChange}
-              fullWidth
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 1,
-                '& .MuiToggleButtonGroup-grouped': {
-                  border: '1.5px solid !important',
-                  borderColor: `${theme.palette.divider} !important`,
-                  borderRadius: '10px !important',
-                  m: '0 !important',
-                },
-                '& .MuiToggleButton-root': {
-                  py: 1.2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.8rem',
-                  gap: 0.5,
-                  flexDirection: 'column',
-                  lineHeight: 1.3,
-                  '&.Mui-selected': {
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                    borderColor: `${theme.palette.primary.main} !important`,
-                    color: 'primary.main',
-                    '&:hover': {
-                      bgcolor: alpha(theme.palette.primary.main, 0.12),
-                    },
-                  },
-                },
-              }}
-            >
-              <ToggleButton value="FULL_DAY">
-                <CalendarMonthIcon sx={{ fontSize: 18 }} />
-                Daily
-              </ToggleButton>
-              <ToggleButton value="HALF_DAY">
-                <TodayIcon sx={{ fontSize: 18 }} />
-                Half Day
-              </ToggleButton>
-              <ToggleButton value="QUARTER_DAY">
-                <MoreTimeIcon sx={{ fontSize: 18 }} />
-                Quarter
-              </ToggleButton>
-              <ToggleButton value="HOURLY">
-                <AccessTimeIcon sx={{ fontSize: 18 }} />
-                Hourly
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-
-          {/* ─── Leave Type ─── */}
+          {/* Leave Type Selector */}
           <TextField
             select
             label="Leave Type"
@@ -379,407 +188,167 @@ const ApplyLeaveModal = ({ open, onClose, onSuccess }: Props) => {
               '& .MuiOutlinedInput-root': { borderRadius: '10px' },
             }}
           >
-            {types
-              .filter((t) => t.isActive)
-              .map((t) => (
+            {availableLeaveTypes.map((t) => {
+              const isUnpaid = t.isPaid === false || t.code === 'LWP'
+              const b = balances.find(
+                (bal) =>
+                  bal.leaveTypeId === t.id ||
+                  bal.leaveType?.name === t.name ||
+                  bal.leaveType?.code === t.code
+              )
+
+              return (
                 <MenuItem key={t.id} value={t.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {t.name}
-                    <Chip
-                      label={t.code}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        bgcolor: alpha(theme.palette.primary.main, 0.08),
-                        color: 'primary.main',
-                      }}
-                    />
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <span>{t.name}</span>
+                    {isUnpaid ? (
+                      <Chip
+                        label="Unpaid (LWP)"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                      />
+                    ) : b ? (
+                      <Chip
+                        label={`${b.remaining} days available`}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                      />
+                    ) : null}
                   </Box>
                 </MenuItem>
-              ))}
+              )
+            })}
           </TextField>
 
-          <Divider sx={{ my: 0.5 }} />
-
-          {/* ═══ FULL_DAY: Date Range ═══ */}
-          {durationType === 'FULL_DAY' && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <TextField
-                label="From Date"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value)
-                  setError(null)
-                  if (!toDate || e.target.value > toDate) {
-                    setToDate(e.target.value)
-                  }
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                }}
-              />
-              <TextField
-                label="To Date"
-                type="date"
-                value={toDate}
-                onChange={(e) => {
+          {/* Full Day: From Date -> To Date */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              label="From Date"
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value)
+                if (!toDate || new Date(e.target.value) > new Date(toDate)) {
                   setToDate(e.target.value)
-                  setError(null)
-                }}
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  htmlInput: { min: fromDate || undefined },
-                }}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                }}
-              />
-            </Box>
-          )}
+                }
+                setError(null)
+              }}
+              slotProps={{ inputLabel: { shrink: true } }}
+              fullWidth
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+              }}
+            />
+            <TextField
+              label="To Date"
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value)
+                setError(null)
+              }}
+              slotProps={{
+                inputLabel: { shrink: true },
+                htmlInput: { min: fromDate || undefined },
+              }}
+              fullWidth
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+              }}
+            />
+          </Box>
 
-          {/* ═══ HALF_DAY: Date + Slot ═══ */}
-          {durationType === 'HALF_DAY' && (
-            <>
-              <TextField
-                label="Date"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value)
-                  setError(null)
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                }}
-              />
-              <Box>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color="text.secondary"
-                  sx={{
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    mb: 1,
-                    display: 'block',
-                  }}
-                >
-                  Select Half
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                  {HALF_DAY_OPTIONS.map((opt) => (
-                    <Box
-                      key={opt.value}
-                      onClick={() => {
-                        setHalfSlot(opt.value)
-                        setError(null)
-                      }}
-                      sx={{
-                        p: 2,
-                        borderRadius: '12px',
-                        border: '1.5px solid',
-                        borderColor:
-                          halfSlot === opt.value
-                            ? theme.palette.primary.main
-                            : theme.palette.divider,
-                        bgcolor:
-                          halfSlot === opt.value
-                            ? alpha(theme.palette.primary.main, 0.06)
-                            : 'transparent',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          borderColor: theme.palette.primary.light,
-                          bgcolor: alpha(theme.palette.primary.main, 0.03),
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        color={
-                          halfSlot === opt.value
-                            ? 'primary.main'
-                            : 'text.primary'
-                        }
-                      >
-                        {opt.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {opt.time}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            </>
-          )}
-
-          {/* ═══ QUARTER_DAY: Date + Slot ═══ */}
-          {durationType === 'QUARTER_DAY' && (
-            <>
-              <TextField
-                label="Date"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value)
-                  setError(null)
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                }}
-              />
-              <Box>
-                <Typography
-                  variant="caption"
-                  fontWeight={600}
-                  color="text.secondary"
-                  sx={{
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    mb: 1,
-                    display: 'block',
-                  }}
-                >
-                  Select Quarter
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: 1.5,
-                  }}
-                >
-                  {QUARTER_DAY_OPTIONS.map((opt) => (
-                    <Box
-                      key={opt.value}
-                      onClick={() => {
-                        setQuarterSlot(opt.value)
-                        setError(null)
-                      }}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: '12px',
-                        border: '1.5px solid',
-                        borderColor:
-                          quarterSlot === opt.value
-                            ? theme.palette.primary.main
-                            : theme.palette.divider,
-                        bgcolor:
-                          quarterSlot === opt.value
-                            ? alpha(theme.palette.primary.main, 0.06)
-                            : 'transparent',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          borderColor: theme.palette.primary.light,
-                          bgcolor: alpha(theme.palette.primary.main, 0.03),
-                        },
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        fontWeight={700}
-                        color={
-                          quarterSlot === opt.value
-                            ? 'primary.main'
-                            : 'text.primary'
-                        }
-                      >
-                        {opt.label}
-                      </Typography>
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ fontSize: '0.7rem' }}
-                      >
-                        {opt.time}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Box>
-            </>
-          )}
-
-          {/* ═══ HOURLY: Date + Time Range ═══ */}
-          {durationType === 'HOURLY' && (
-            <>
-              <TextField
-                label="Date"
-                type="date"
-                value={fromDate}
-                onChange={(e) => {
-                  setFromDate(e.target.value)
-                  setError(null)
-                }}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-                size="small"
-                sx={{
-                  '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                }}
-              />
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  select
-                  label="Start Time"
-                  value={startTime}
-                  onChange={(e) => {
-                    setStartTime(e.target.value)
-                    setError(null)
-                    if (endTime && e.target.value >= endTime) {
-                      setEndTime('')
-                    }
-                  }}
-                  fullWidth
-                  size="small"
-                  sx={{
-                    '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                  }}
-                >
-                  {TIME_OPTIONS.map((t) => (
-                    <MenuItem key={t} value={t}>
-                      {formatTimeLabel(t)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  select
-                  label="End Time"
-                  value={endTime}
-                  onChange={(e) => {
-                    setEndTime(e.target.value)
-                    setError(null)
-                  }}
-                  fullWidth
-                  size="small"
-                  disabled={!startTime}
-                  sx={{
-                    '& .MuiOutlinedInput-root': { borderRadius: '10px' },
-                  }}
-                >
-                  {availableEndTimes.map((t) => (
-                    <MenuItem key={t} value={t}>
-                      {formatTimeLabel(t)}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-            </>
-          )}
-
-          {/* ─── Duration Summary ─── */}
+          {/* Duration Summary Badge */}
           {durationSummary && (
             <Box
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 p: 1.5,
                 borderRadius: '10px',
-                bgcolor: alpha(theme.palette.success.main, 0.06),
+                bgcolor: alpha(theme.palette.info.main, 0.08),
                 border: '1px solid',
-                borderColor: alpha(theme.palette.success.main, 0.15),
+                borderColor: alpha(theme.palette.info.main, 0.2),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
               }}
             >
-              <Typography
-                variant="body2"
-                fontWeight={600}
-                color="success.dark"
-              >
+              <Typography variant="caption" fontWeight={600} color="info.main">
+                Requested Duration:
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color="info.dark">
                 {durationSummary}
-                {durationType === 'HOURLY' && startTime && endTime && (
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    color="text.secondary"
-                    fontWeight={400}
-                    sx={{ ml: 1 }}
-                  >
-                    ({formatTimeLabel(startTime)} – {formatTimeLabel(endTime)})
-                  </Typography>
-                )}
               </Typography>
             </Box>
           )}
 
-          {/* ─── Reason ─── */}
+          {/* Reason */}
           <TextField
-            label="Reason (optional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            label="Reason (Optional)"
             multiline
             rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Provide a brief reason for your leave request..."
             fullWidth
             size="small"
-            placeholder="Briefly describe the reason for your leave..."
             sx={{
               '& .MuiOutlinedInput-root': { borderRadius: '10px' },
             }}
           />
 
-          {/* ─── Error ─── */}
+          {/* Error message */}
           {error && (
-            <Box
+            <Typography
+              variant="caption"
+              color="error"
               sx={{
+                bgcolor: alpha(theme.palette.error.main, 0.08),
                 p: 1.5,
-                borderRadius: '10px',
-                bgcolor: alpha(theme.palette.error.main, 0.06),
+                borderRadius: '8px',
                 border: '1px solid',
-                borderColor: alpha(theme.palette.error.main, 0.15),
+                borderColor: alpha(theme.palette.error.main, 0.2),
               }}
             >
-              <Typography
-                variant="body2"
-                color="error.dark"
-                fontWeight={500}
-              >
-                {error}
-              </Typography>
-            </Box>
+              {error}
+            </Typography>
           )}
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1 }}>
+      <Divider />
+
+      <DialogActions sx={{ px: 3, py: 2 }}>
         <Button
           onClick={handleClose}
+          color="inherit"
           disabled={submitting}
-          variant="outlined"
-          sx={{ borderRadius: '10px', px: 3 }}
+          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
         >
           Cancel
         </Button>
         <Button
-          variant="contained"
           onClick={handleSubmit}
+          variant="contained"
           disabled={submitting}
-          startIcon={submitting ? <CircularProgress size={18} /> : null}
           sx={{
-            borderRadius: '10px',
+            borderRadius: '8px',
+            textTransform: 'none',
+            fontWeight: 700,
             px: 3,
-            background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+            minWidth: 120,
           }}
         >
-          {submitting ? 'Submitting…' : 'Submit Request'}
+          {submitting ? (
+            <CircularProgress size={20} color="inherit" />
+          ) : (
+            'Submit Request'
+          )}
         </Button>
       </DialogActions>
     </Dialog>

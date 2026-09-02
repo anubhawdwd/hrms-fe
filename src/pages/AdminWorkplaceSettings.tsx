@@ -1,4 +1,4 @@
-// src/pages/AdminGeoSettings.tsx
+// src/pages/AdminWorkplaceSettings.tsx
 import React, { useState, useEffect } from 'react'
 import {
   Box,
@@ -21,6 +21,10 @@ import SaveIcon from '@mui/icons-material/Save'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
+import DateRangeIcon from '@mui/icons-material/DateRange'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
+import FormControl from '@mui/material/FormControl'
 import toast from 'react-hot-toast'
 import { organizationApi } from '../api/organization.api'
 import PageHeader from '../components/PageHeader'
@@ -36,7 +40,7 @@ function formatMinutes(minutes: number): string {
   return `${h}h ${m < 10 ? '0' + m : m}m`
 }
 
-const AdminGeoSettings = () => {
+const AdminWorkplaceSettings = () => {
   const [activeTab, setActiveTab] = useState(0)
 
   // ─── Loading States ───
@@ -50,6 +54,11 @@ const AdminGeoSettings = () => {
   const [lunchMinutes, setLunchMinutes] = useState(30)
   const [breakMinutes, setBreakMinutes] = useState(20)
   const [graceMinutes, setGraceMinutes] = useState(10)
+
+  // ─── Leave & Work Week Rules State ───
+  const [workWeekDays, setWorkWeekDays] = useState<number>(5)
+  const [sandwichRuleEnabled, setSandwichRuleEnabled] = useState<boolean>(false)
+  const [savingLeaveRules, setSavingLeaveRules] = useState<boolean>(false)
 
   // ─── Geo-Fencing State ───
   const [officeId, setOfficeId] = useState<string | null>(null)
@@ -83,6 +92,8 @@ const AdminGeoSettings = () => {
         setLunchMinutes(hoursData.lunchMinutes ?? 30)
         setBreakMinutes(hoursData.breakMinutes ?? 20)
         setGraceMinutes(hoursData.graceMinutes ?? 10)
+        setWorkWeekDays(hoursData.workWeekDays ?? 5)
+        setSandwichRuleEnabled(Boolean(hoursData.sandwichRuleEnabled))
       }
     } catch {
       toast.error('Failed to load organization settings')
@@ -94,6 +105,23 @@ const AdminGeoSettings = () => {
   useEffect(() => {
     loadAllSettings()
   }, [])
+
+  // ─── Leave Rules Save ───
+  const handleSaveLeaveRules = async () => {
+    try {
+      setSavingLeaveRules(true)
+      await organizationApi.updateWorkingHoursConfig({
+        workWeekDays,
+        sandwichRuleEnabled,
+      })
+      toast.success('Leave & work week rules updated successfully')
+    } catch (err: any) {
+      console.error('Failed to update leave rules:', err)
+      toast.error(err?.response?.data?.message || 'Failed to update leave rules')
+    } finally {
+      setSavingLeaveRules(false)
+    }
+  }
 
   // ─── Working Hours Save ───
   const handleSaveWorkingHours = async (e: React.FormEvent) => {
@@ -215,15 +243,57 @@ const AdminGeoSettings = () => {
         ]}
       />
 
-      {/* Tabs */}
-      <Paper elevation={1} sx={{ mb: 3, borderRadius: 2 }}>
+      {/* ─── TABS HEADER (Scrollable & Responsive) ─── */}
+      <Paper
+        elevation={2}
+        sx={{
+          borderRadius: '16px',
+          mb: 3.5,
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
+          sx={{
+            px: { xs: 1, sm: 2 },
+            bgcolor: 'background.paper',
+            '& .MuiTabs-scroller': {
+              overflowX: 'auto !important',
+            },
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: { xs: '0.875rem', sm: '0.9375rem' },
+              py: 2,
+              minHeight: 56,
+              gap: 1.25,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                color: 'primary.main',
+                bgcolor: 'action.hover',
+              },
+              '&.Mui-selected': {
+                fontWeight: 700,
+                color: 'primary.main',
+              },
+            },
+            '& .MuiTabs-scrollButtons': {
+              '&.Mui-disabled': { opacity: 0.25 },
+              width: 40,
+            },
+          }}
         >
-          <Tab icon={<AccessTimeIcon />} iconPosition="start" label="Working Hours & Breaks" />
-          <Tab icon={<LocationOnIcon />} iconPosition="start" label="Office Geo-Fencing" />
+          <Tab icon={<AccessTimeIcon fontSize="small" />} iconPosition="start" label="Working Hours & Breaks" />
+          <Tab icon={<DateRangeIcon fontSize="small" />} iconPosition="start" label="Work Week & Sandwich Policy" />
+          <Tab icon={<LocationOnIcon fontSize="small" />} iconPosition="start" label="Office Geo-Fencing" />
         </Tabs>
       </Paper>
 
@@ -402,8 +472,149 @@ const AdminGeoSettings = () => {
         </Grid>
       )}
 
-      {/* ─── TAB 1: Office Geo-Fencing ─── */}
+            {/* ─── TAB 1: Leave & Work Week Rules ─── */}
       {activeTab === 1 && (
+        <Stack spacing={3}>
+          {/* Work Week & Sandwich Policy Card */}
+          <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+              <DateRangeIcon color="primary" />
+              <Typography variant="h6" fontWeight={700}>
+                Company Work Week & Sandwich Leave Policy
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Configure company-wide standard working days and whether sandwich rules apply when leaves bridge weekends or holidays.
+            </Typography>
+
+            <Grid container spacing={3}>
+              {/* Working Week Setting */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2.5,
+                    borderRadius: '10px',
+                    height: '100%',
+                    bgcolor: 'background.default',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                    1. Standard Working Week
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                    Determines which days count as non-working weekends across attendance tracking and leave calculations.
+                  </Typography>
+
+                  <FormControl component="fieldset">
+                    <RadioGroup
+                      value={workWeekDays}
+                      onChange={(e) => setWorkWeekDays(Number(e.target.value))}
+                    >
+                      <FormControlLabel
+                        value={5}
+                        control={<Radio size="small" />}
+                        label={
+                          <Box sx={{ ml: 0.5 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              5-Day Work Week (Mon – Fri)
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Saturday and Sunday are treated as weekends.
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{ mb: 1.5 }}
+                      />
+                      <FormControlLabel
+                        value={6}
+                        control={<Radio size="small" />}
+                        label={
+                          <Box sx={{ ml: 0.5 }}>
+                            <Typography variant="body2" fontWeight={600}>
+                              6-Day Work Week (Mon – Sat)
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Saturday is a working day; only Sunday is a weekend.
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </RadioGroup>
+                  </FormControl>
+                </Paper>
+              </Grid>
+
+              {/* Sandwich Policy Setting */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2.5,
+                    borderRadius: '10px',
+                    height: '100%',
+                    bgcolor: 'background.default',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                    2. Company Sandwich Leave Rule
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                    When enabled, any non-working days (weekends or public holidays) that fall between leave days are included in the total leave deduction.
+                  </Typography>
+
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={sandwichRuleEnabled}
+                        onChange={(e) => setSandwichRuleEnabled(e.target.checked)}
+                        color="warning"
+                      />
+                    }
+                    label={
+                      <Box sx={{ ml: 0.5 }}>
+                        <Typography variant="body2" fontWeight={700} color={sandwichRuleEnabled ? 'warning.dark' : 'text.primary'}>
+                          {sandwichRuleEnabled ? 'Sandwich Rule Enabled' : 'Sandwich Rule Disabled'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {sandwichRuleEnabled
+                            ? 'Applies continuous span calculation across single ranges or separate adjacent requests (e.g. Fri + Mon).'
+                            : 'Only actual working days in the leave range are deducted.'}
+                        </Typography>
+                      </Box>
+                    }
+                  />
+
+                  {sandwichRuleEnabled && (
+                    <Alert severity="warning" sx={{ mt: 2, borderRadius: '8px', fontSize: '0.8125rem' }}>
+                      <strong>Sandwich Rule Active:</strong> HR can still remove or exempt specific weekend bridge days on a per-request basis in the Leave Approvals dashboard.
+                    </Alert>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Save Action */}
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={
+                  savingLeaveRules ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />
+                }
+                disabled={savingLeaveRules}
+                onClick={handleSaveLeaveRules}
+                sx={{ px: 4, py: 1, fontWeight: 700, borderRadius: '8px' }}
+              >
+                {savingLeaveRules ? 'Saving Rules...' : 'Save Leave Rules'}
+              </Button>
+            </Box>
+          </Paper>
+        </Stack>
+      )}
+
+      {/* ─── TAB 2: Office Geo-Fencing ─── */}
+      {activeTab === 2 && (
         <Grid container spacing={3}>
           {/* Geo-Fencing Master Switch */}
           <Grid size={{ xs: 12 }}>
@@ -609,4 +820,4 @@ const AdminGeoSettings = () => {
   )
 }
 
-export default AdminGeoSettings
+export default AdminWorkplaceSettings
