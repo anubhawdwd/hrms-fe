@@ -31,6 +31,7 @@ export interface AttendanceDay {
   date: string
   status: 'PRESENT' | 'ABSENT' | 'PARTIAL' | 'LEAVE'
   totalMinutes: number
+  sessions?: AttendanceDashboardSession[]
   events?: AttendanceEvent[]
   createdAt?: string
   updatedAt?: string
@@ -88,12 +89,20 @@ export type DashboardAttendanceStatus =
   | 'WEEKEND'
   | 'UNRECORDED'
 
+export interface AttendanceDashboardSession {
+  checkIn: string
+  checkOut: string | null
+  durationMinutes: number
+  isOngoing: boolean
+}
+
 export interface AttendanceDashboardCell {
   date: string
   status: DashboardAttendanceStatus
   checkIn: string | null
   checkOut: string | null
   totalMinutes: number
+  sessions?: AttendanceDashboardSession[]
   leaveType: string | null
   leaveDuration: string | null
   holidayName: string | null

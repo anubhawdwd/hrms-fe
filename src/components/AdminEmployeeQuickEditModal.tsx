@@ -1,4 +1,5 @@
 // src/components/AdminEmployeeQuickEditModal.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Dialog,
@@ -43,6 +44,8 @@ import CancelIcon from '@mui/icons-material/Cancel'
 import DoNotDisturbIcon from '@mui/icons-material/DoNotDisturb'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import toast from 'react-hot-toast'
 
 import { employeeApi } from '../api/employee.api'
@@ -777,26 +780,31 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   <MenuItem value="OTHER">Other</MenuItem>
                 </TextField>
 
-                <TextField
+                <DatePicker
                   label="Date of Birth"
-                  type="date"
-                  fullWidth
-                  size="small"
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  maxDate={dayjs()}
+                  value={dateOfBirth ? dayjs(dateOfBirth) : null}
+                  onChange={(newValue) => setDateOfBirth(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
                   disabled={profileSaving}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'small',
+                    },
+                  }}
                 />
 
-                <TextField
+                <DatePicker
                   label="Joining Date"
-                  type="date"
-                  fullWidth
-                  size="small"
-                  value={joiningDate}
-                  onChange={(e) => setJoiningDate(e.target.value)}
+                  value={joiningDate ? dayjs(joiningDate) : null}
+                  onChange={(newValue) => setJoiningDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
                   disabled={profileSaving}
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      size: 'small',
+                    },
+                  }}
                 />
               </Stack>
 
@@ -1014,15 +1022,18 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   gap: 2,
                 }}
               >
-                <TextField
-                  type="date"
+                <DatePicker
                   label="Attendance Date"
-                  size="small"
-                  value={attendanceDate}
-                  onChange={(e) => setAttendanceDate(e.target.value)}
-                  inputProps={{ max: todayStr }}
-                  helperText="Future dates cannot be recorded"
-                  sx={{ minWidth: 200 }}
+                  maxDate={dayjs(todayStr)}
+                  value={attendanceDate ? dayjs(attendanceDate) : null}
+                  onChange={(newValue) => setAttendanceDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      helperText: 'Future dates cannot be recorded',
+                      sx: { minWidth: 200 },
+                    },
+                  }}
                 />
 
                 <Button
@@ -1071,25 +1082,29 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   </Box>
 
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-                    <TextField
-                      type="time"
+                    <TimePicker
                       label="Check-In Time (IST)"
-                      size="small"
-                      fullWidth
-                      value={checkInTime}
-                      onChange={(e) => setCheckInTime(e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      required
+                      value={checkInTime ? dayjs(`2000-01-01T${checkInTime}`) : null}
+                      onChange={(newValue) => setCheckInTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
+                      slotProps={{
+                        textField: {
+                          size: 'small',
+                          fullWidth: true,
+                          required: true,
+                        },
+                      }}
                     />
-                    <TextField
-                      type="time"
+                    <TimePicker
                       label="Check-Out Time (IST)"
-                      size="small"
-                      fullWidth
-                      value={checkOutTime}
-                      onChange={(e) => setCheckOutTime(e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                      helperText="Leave blank for open shift"
+                      value={checkOutTime ? dayjs(`2000-01-01T${checkOutTime}`) : null}
+                      onChange={(newValue) => setCheckOutTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
+                      slotProps={{
+                        textField: {
+                          size: 'small',
+                          fullWidth: true,
+                          helperText: 'Leave blank for open shift',
+                        },
+                      }}
                     />
                   </Stack>
 
@@ -1273,10 +1288,10 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
                           <Typography variant="caption" color="text.secondary">
-                            Used: <strong>{bal.used}</strong> / {bal.allocated}
+                            Used: <strong>{formatLeaveDays(bal.used)}</strong>
                           </Typography>
                           <Chip
-                            label={`${bal.remaining} rem`}
+                            label={`${formatLeaveDays(bal.remaining)} Available`}
                             size="small"
                             color={bal.remaining > 0 ? 'success' : 'default'}
                             sx={{ fontWeight: 700, height: 22, fontSize: '0.75rem' }}
@@ -1351,7 +1366,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                             </TableCell>
                             <TableCell align="center">
                               <Chip
-                                label={`${req.durationValue} ${req.durationType.toLowerCase()}`}
+                                label={`${formatLeaveDays(req.durationValue)} ${req.durationType.toLowerCase()}`}
                                 size="small"
                                 variant="outlined"
                               />

@@ -36,6 +36,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import TimerIcon from '@mui/icons-material/Timer'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import toast from 'react-hot-toast'
 
 import { attendanceApi } from '../api/attendance.api'
@@ -160,8 +162,8 @@ const AdminAttendance = () => {
   const [eventEmployeeId, setEventEmployeeId] = useState<string>('')
   const [eventDate, setEventDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
   const [eventType, setEventType] = useState<'CHECK_IN' | 'CHECK_OUT'>('CHECK_IN')
-  const [eventTimestamp, setEventTimestamp] = useState<string>(
-    dayjs().format('YYYY-MM-DDTHH:mm')
+  const [eventTime, setEventTime] = useState<string>(
+    dayjs().format('HH:mm')
   )
   const [eventSource, setEventSource] = useState<'WEB' | 'PWA'>('WEB')
   const [eventReason, setEventReason] = useState<string>('')
@@ -350,12 +352,18 @@ const AdminAttendance = () => {
       toast.error('Please select a date')
       return
     }
-    if (!eventTimestamp) {
-      toast.error('Please specify the event timestamp')
+    if (!eventTime) {
+      toast.error('Please specify the event punch time')
       return
     }
     if (!eventReason.trim()) {
       toast.error('Please provide an audit reason')
+      return
+    }
+
+    const combinedDateTime = dayjs(`${eventDate}T${eventTime}`)
+    if (!combinedDateTime.isValid()) {
+      toast.error('Invalid date or time format')
       return
     }
 
@@ -365,7 +373,7 @@ const AdminAttendance = () => {
         employeeId: eventEmployeeId,
         date: eventDate,
         type: eventType,
-        timestamp: new Date(eventTimestamp).toISOString(),
+        timestamp: combinedDateTime.toISOString(),
         source: eventSource,
         reason: eventReason.trim(),
       })
@@ -453,24 +461,31 @@ const AdminAttendance = () => {
             </Grid>
 
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
+              <DatePicker
                 label="From Date"
-                type="date"
-                value={filterFromDate}
-                onChange={(e) => setFilterFromDate(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
+                value={filterFromDate ? dayjs(filterFromDate) : null}
+                onChange={(newValue) => setFilterFromDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                  },
+                }}
               />
             </Grid>
 
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <TextField
+              <DatePicker
                 label="To Date"
-                type="date"
-                value={filterToDate}
-                onChange={(e) => setFilterToDate(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
+                value={filterToDate ? dayjs(filterToDate) : null}
+                minDate={filterFromDate ? dayjs(filterFromDate) : undefined}
+                onChange={(newValue) => setFilterToDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: 'small',
+                  },
+                }}
               />
             </Grid>
 
@@ -567,19 +582,21 @@ const AdminAttendance = () => {
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 8 }}>
-                  <TextField
+                  <DatePicker
                     label="Attendance Date"
-                    type="date"
-                    value={dayDate}
-                    onChange={(e) => {
-                      setDayDate(e.target.value)
+                    maxDate={dayjs(getTodayDateIST())}
+                    value={dayDate ? dayjs(dayDate) : null}
+                    onChange={(newValue) => {
+                      setDayDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')
                       setRecordChecked(false)
                       setLoadedRecord(null)
                     }}
-                    fullWidth
-                    required
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{ max: getTodayDateIST() }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                      },
+                    }}
                   />
                 </Grid>
 
@@ -614,29 +631,31 @@ const AdminAttendance = () => {
                   <Grid container spacing={2}>
                     {/* Check-In Time */}
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
+                      <TimePicker
                         label="Check-In Time"
-                        type="time"
-                        value={checkInTime}
-                        onChange={(e) => setCheckInTime(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 60 }}
+                        value={checkInTime ? dayjs(`2000-01-01T${checkInTime}`) : null}
+                        onChange={(newValue) => setCheckInTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            required: true,
+                          },
+                        }}
                       />
                     </Grid>
 
                     {/* Check-Out Time */}
                     <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
+                      <TimePicker
                         label="Check-Out Time"
-                        type="time"
-                        value={checkOutTime}
-                        onChange={(e) => setCheckOutTime(e.target.value)}
-                        fullWidth
-                        required
-                        InputLabelProps={{ shrink: true }}
-                        inputProps={{ step: 60 }}
+                        value={checkOutTime ? dayjs(`2000-01-01T${checkOutTime}`) : null}
+                        onChange={(newValue) => setCheckOutTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                            required: true,
+                          },
+                        }}
                       />
                     </Grid>
 
@@ -824,15 +843,17 @@ const AdminAttendance = () => {
                   </Grid>
 
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
+                    <DatePicker
                       label="Attendance Date"
-                      type="date"
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      fullWidth
-                      required
-                      InputLabelProps={{ shrink: true }}
-                      inputProps={{ max: getTodayDateIST() }}
+                      maxDate={dayjs(getTodayDateIST())}
+                      value={eventDate ? dayjs(eventDate) : null}
+                      onChange={(newValue) => setEventDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          required: true,
+                        },
+                      }}
                     />
                   </Grid>
 
@@ -851,14 +872,16 @@ const AdminAttendance = () => {
                   </Grid>
 
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Punch Timestamp"
-                      type="datetime-local"
-                      value={eventTimestamp}
-                      onChange={(e) => setEventTimestamp(e.target.value)}
-                      fullWidth
-                      required
-                      InputLabelProps={{ shrink: true }}
+                    <TimePicker
+                      label="Punch Time"
+                      value={eventTime ? dayjs(`2000-01-01T${eventTime}`) : null}
+                      onChange={(newValue) => setEventTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          required: true,
+                        },
+                      }}
                     />
                   </Grid>
 

@@ -16,6 +16,7 @@ import {
 } from '@mui/material'
 import PersonOffIcon from '@mui/icons-material/PersonOff'
 import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import toast from 'react-hot-toast'
 import { employeeApi } from '../api/employee.api'
 
@@ -104,16 +105,19 @@ export const OffboardEmployeeModal = ({
             </Box>
           </Alert>
 
-          <TextField
+          <DatePicker
             label="Effective Offboarding Date"
-            type="date"
-            fullWidth
-            required
-            value={effectiveDate}
-            onChange={(e) => setEffectiveDate(e.target.value)}
-            helperText="Record-keeping date (deactivation takes effect immediately)"
-            InputLabelProps={{ shrink: true }}
+            value={effectiveDate ? dayjs(effectiveDate) : null}
+            onChange={(newValue) => setEffectiveDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
             disabled={loading}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+                required: true,
+                size: 'small',
+                helperText: 'Record-keeping date (deactivation takes effect immediately)',
+              },
+            }}
           />
 
           <TextField

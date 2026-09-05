@@ -36,6 +36,7 @@ import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 import { leaveApi } from '../api/leave.api'
 import type { LeaveRequest, LeaveRequestDay, LeaveRequestStatus } from '../types/leave.types'
+import { formatLeaveDays } from '../utils/format.utils'
 
 interface AdminLeaveDayBreakdownDialogProps {
   open: boolean
@@ -259,12 +260,12 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
 
   const durationStr =
     request.durationType === 'FULL_DAY'
-      ? `${request.durationValue} Day${request.durationValue > 1 ? 's' : ''}`
+      ? `${formatLeaveDays(request.durationValue)} Day${request.durationValue > 1 ? 's' : ''}`
       : request.durationType === 'HALF_DAY'
       ? 'Half Day'
       : request.durationType === 'QUARTER_DAY'
       ? 'Quarter Day'
-      : `${request.durationValue}h (Hourly)`
+      : `${formatLeaveDays(request.durationValue)}h (Hourly)`
 
   return (
     <>
@@ -406,7 +407,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                         ? 'Half Day'
                         : request.durationType === 'QUARTER_DAY'
                         ? 'Quarter Day'
-                        : `${request.durationValue}h`
+                        : `${formatLeaveDays(request.durationValue)}h`
 
                     return (
                       <TableRow
@@ -469,7 +470,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                               />
                             ) : (
                               <Typography variant="caption" color="text.secondary">
-                                ({day.deductDays} day deduct)
+                                ({formatLeaveDays(day.deductDays)} day deduct)
                               </Typography>
                             )}
                           </Stack>

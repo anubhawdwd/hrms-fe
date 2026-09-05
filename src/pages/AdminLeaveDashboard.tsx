@@ -1,4 +1,5 @@
 // src/pages/AdminLeaveDashboard.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
@@ -179,13 +180,13 @@ const HrCancelDialog: React.FC<HrCancelDialogProps> = ({
 function formatDurationLabel(durationType: LeaveDurationType, durationValue?: number): string {
   switch (durationType) {
     case 'FULL_DAY':
-      return durationValue && durationValue > 1 ? `${durationValue} Days` : 'Full Day'
+      return durationValue && durationValue > 1 ? `${formatLeaveDays(durationValue)} Days` : 'Full Day'
     case 'HALF_DAY':
       return 'Half Day'
     case 'QUARTER_DAY':
       return 'Quarter Day'
     case 'HOURLY':
-      return durationValue ? `${durationValue}h Leave` : 'Hourly'
+      return durationValue ? `${formatLeaveDays(durationValue)}h Leave` : 'Hourly'
     default:
       return durationType
   }

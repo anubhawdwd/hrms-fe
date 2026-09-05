@@ -29,7 +29,7 @@ export interface LeaveBalance {
   used: number
   carriedForward: number
   remaining: number
-  leaveType: { id?: string; name: string; code: string }
+  leaveType: { id?: string; name: string; code: string; isPaid?: boolean }
 }
 
 export interface LeaveRequestDay {
@@ -58,7 +58,7 @@ export interface LeaveRequest {
   createdAt: string
   updatedAt?: string
   days?: LeaveRequestDay[]
-  leaveType: { name: string; code: string }
+  leaveType: { id?: string; name: string; code: string; isPaid?: boolean }
 }
 
 export interface LeaveRequestWithEmployee extends LeaveRequest {
@@ -82,11 +82,14 @@ export interface ApplyLeaveRequest {
   reason?: string
 }
 
+export type HolidayType = 'NORMAL' | 'RESTRICTED'
+
 export interface Holiday {
   id: string
   name: string
   date: string
   companyId: string
+  type?: HolidayType
 }
 
 export interface LeaveTodayEmployee {

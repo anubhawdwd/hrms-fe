@@ -1,3 +1,5 @@
+import dayjs from "dayjs"
+import { DatePicker } from "@mui/x-date-pickers/DatePicker"
 import React, { useEffect, useState, useCallback } from "react"
 import {
   Box,
@@ -337,23 +339,28 @@ const SuperAdminErrorLogs: React.FC = () => {
             </TextField>
 
             {/* From Date */}
-            <TextField
-              type="date"
-              size="small"
+            <DatePicker
               label="From Date"
-              InputLabelProps={{ shrink: true }}
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              value={startDate ? dayjs(startDate) : null}
+              onChange={(newValue) => setStartDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+              slotProps={{
+                textField: {
+                  size: 'small',
+                },
+              }}
             />
 
             {/* To Date */}
-            <TextField
-              type="date"
-              size="small"
+            <DatePicker
               label="To Date"
-              InputLabelProps={{ shrink: true }}
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              value={endDate ? dayjs(endDate) : null}
+              minDate={startDate ? dayjs(startDate) : undefined}
+              onChange={(newValue) => setEndDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+              slotProps={{
+                textField: {
+                  size: 'small',
+                },
+              }}
             />
 
             {/* Free Search */}

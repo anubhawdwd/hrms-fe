@@ -34,6 +34,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditIcon from '@mui/icons-material/Edit'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import toast from 'react-hot-toast'
 
 import { employeeApi } from '../api/employee.api'
@@ -554,13 +555,16 @@ const AdminCreateEmployee = () => {
             </Grid>
 
             <Grid size={{ xs: 12, sm: 4 }}>
-              <TextField
+              <DatePicker
                 label="Date of Birth"
-                type="date"
-                value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
+                maxDate={dayjs()}
+                value={dateOfBirth ? dayjs(dateOfBirth) : null}
+                onChange={(newValue) => setDateOfBirth(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                  },
+                }}
               />
             </Grid>
 
@@ -731,15 +735,17 @@ const AdminCreateEmployee = () => {
 
           <Grid container spacing={2.5}>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
+              <DatePicker
                 label="Joining Date"
-                type="date"
-                value={joiningDate}
-                onChange={(e) => setJoiningDate(e.target.value)}
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-                helperText="Leave balances and attendance will be bootstrapped from this date"
+                value={joiningDate ? dayjs(joiningDate) : null}
+                onChange={(newValue) => setJoiningDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    helperText: "Leave balances and attendance will be bootstrapped from this date",
+                  },
+                }}
               />
             </Grid>
 

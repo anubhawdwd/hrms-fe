@@ -1,4 +1,5 @@
 // src/components/AdminMarkLeaveDialog.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -17,6 +18,8 @@ import {
 } from '@mui/material'
 import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff'
 import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import toast from 'react-hot-toast'
 import { leaveApi } from '../api/leave.api'
 import type { LeaveType, LeaveBalance } from '../types/leave.types'
@@ -131,7 +134,7 @@ export const AdminMarkLeaveDialog = ({
               disabled={submitting}
               helperText={
                 selectedBalance
-                  ? `Available balance: ${selectedBalance.remaining} days (Allocated: ${selectedBalance.allocated}, Used: ${selectedBalance.used})`
+                  ? `Available: ${formatLeaveDays(selectedBalance.remaining)} days · Used: ${formatLeaveDays(selectedBalance.used)} days`
                   : 'Select leave type'
               }
             >
@@ -143,7 +146,7 @@ export const AdminMarkLeaveDialog = ({
                       <span>{type.name}</span>
                       {bal && (
                         <Chip
-                          label={`${bal.remaining} rem`}
+                          label={`${formatLeaveDays(bal.remaining)} Available`}
                           size="small"
                           color={bal.remaining > 0 ? 'success' : 'default'}
                           sx={{ height: 20, fontSize: '0.75rem' }}
@@ -172,26 +175,33 @@ export const AdminMarkLeaveDialog = ({
 
             {/* Dates */}
             <Stack direction="row" spacing={2}>
-              <TextField
+              <DatePicker
                 label="From Date"
-                type="date"
-                fullWidth
-                required
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                value={fromDate ? dayjs(fromDate) : null}
+                onChange={(newValue) => setFromDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
                 disabled={submitting}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    required: true,
+                    size: 'small',
+                  },
+                }}
               />
               {durationType === 'FULL_DAY' && (
-                <TextField
+                <DatePicker
                   label="To Date"
-                  type="date"
-                  fullWidth
-                  required
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  value={toDate ? dayjs(toDate) : null}
+                  minDate={fromDate ? dayjs(fromDate) : undefined}
+                  onChange={(newValue) => setToDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
                   disabled={submitting}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      size: 'small',
+                    },
+                  }}
                 />
               )}
             </Stack>
@@ -230,25 +240,31 @@ export const AdminMarkLeaveDialog = ({
             {/* Hourly start / end times */}
             {durationType === 'HOURLY' && (
               <Stack direction="row" spacing={2}>
-                <TextField
+                <TimePicker
                   label="Start Time"
-                  type="time"
-                  fullWidth
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  value={startTime ? dayjs(`2000-01-01T${startTime}`) : null}
+                  onChange={(newValue) => setStartTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
                   disabled={submitting}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      size: 'small',
+                    },
+                  }}
                 />
-                <TextField
+                <TimePicker
                   label="End Time"
-                  type="time"
-                  fullWidth
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
+                  value={endTime ? dayjs(`2000-01-01T${endTime}`) : null}
+                  onChange={(newValue) => setEndTime(newValue && newValue.isValid() ? newValue.format('HH:mm') : '')}
                   disabled={submitting}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      required: true,
+                      size: 'small',
+                    },
+                  }}
                 />
               </Stack>
             )}

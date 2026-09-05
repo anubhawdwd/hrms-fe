@@ -21,6 +21,12 @@ import {
   TextField,
   InputAdornment,
   Popover,
+  Popper,
+  Fade,
+  Badge,
+  Tooltip,
+  useTheme,
+  alpha,
 } from '@mui/material'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
@@ -34,6 +40,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
 
 import { attendanceApi } from '../api/attendance.api'
 import { leaveApi } from '../api/leave.api'
@@ -46,176 +53,56 @@ import type {
 import type { LeaveRequestWithEmployee } from '../types/leave.types'
 import PageHeader from '../components/PageHeader'
 import LoadingState from '../components/LoadingState'
+import { DaySessionDetail, STATUS_CONFIG } from '../components/DaySessionDetail'
 
-// ─── Status Mapping Config ───
-export const STATUS_CONFIG: Record<
-  DashboardAttendanceStatus,
-  { label: string; short: string; bg: string; color: string; border: string }
-> = {
-  PRESENT: {
-    label: 'Present',
-    short: 'P',
-    bg: '#e8f5e9',
-    color: '#2e7d32',
-    border: '#a5d6a7',
-  },
-  PARTIAL: {
-    label: 'Partial',
-    short: 'PT',
-    bg: '#fff8e1',
-    color: '#f57f17',
-    border: '#ffe082',
-  },
-  ABSENT: {
-    label: 'Absent',
-    short: 'A',
-    bg: '#ffebee',
-    color: '#c62828',
-    border: '#ef9a9a',
-  },
-  ON_LEAVE: {
-    label: 'On Leave',
-    short: 'L',
-    bg: '#e3f2fd',
-    color: '#1565c0',
-    border: '#90caf9',
-  },
-  HALF_DAY_LEAVE: {
-    label: 'Half Day Leave',
-    short: 'HL',
-    bg: '#e0f7fa',
-    color: '#00838f',
-    border: '#80deea',
-  },
-  PENDING_LEAVE: {
-    label: 'Pending Leave',
-    short: 'PL',
-    bg: '#fff3e0',
-    color: '#e65100',
-    border: '#ffcc80',
-  },
-  HOLIDAY: {
-    label: 'Holiday',
-    short: 'H',
-    bg: '#f3e5f5',
-    color: '#7b1fa2',
-    border: '#ce93d8',
-  },
-  WEEKEND: {
-    label: 'Weekend',
-    short: 'W',
-    bg: '#f5f5f5',
-    color: '#757575',
-    border: '#e0e0e0',
-  },
-  UNRECORDED: {
-    label: 'Unrecorded',
-    short: '—',
-    bg: '#fafafa',
-    color: '#9e9e9e',
-    border: '#eeeeee',
-  },
-}
-
+// Helper date utilities
 function getCurrentMonthStr(): string {
   const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
 }
 
 function getTodayDateStr(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Kolkata',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date())
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function formatMonthTitle(monthStr: string): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const d = new Date(Date.UTC(y, m - 1, 1))
-  return d.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-}
-
-function formatDatePretty(dateStr: string): string {
-  if (!dateStr) return '—'
-  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number)
-  const dateObj = new Date(Date.UTC(y, m - 1, d))
-  return dateObj.toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'Asia/Kolkata',
-  })
-}
-
-function formatTime(isoStr: string | null): string {
-  if (!isoStr) return '—'
-  try {
-    const d = new Date(isoStr)
-    return (
-      d.toLocaleTimeString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      }) + ' IST'
-    )
-  } catch {
-    return '—'
-  }
-}
-
-function formatDuration(minutes: number): string {
-  if (!minutes || minutes <= 0) return '00:00:00'
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  const s = 0
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  if (!monthStr || !monthStr.includes('-')) return monthStr
+  const [y, m] = monthStr.split('-')
+  const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1)
+  return date.toLocaleString('default', { month: 'long', year: 'numeric' }).toUpperCase()
 }
 
 function shiftMonth(monthStr: string, delta: number): string {
-  const [y, m] = monthStr.split('-').map(Number)
-  const date = new Date(Date.UTC(y, m - 1 + delta, 1))
-  const newY = date.getUTCFullYear()
-  const newM = String(date.getUTCMonth() + 1).padStart(2, '0')
+  if (!monthStr || !monthStr.includes('-')) return monthStr
+  const [y, m] = monthStr.split('-').map((v) => parseInt(v, 10))
+  const d = new Date(y, m - 1 + delta, 1)
+  const newY = d.getFullYear()
+  const newM = String(d.getMonth() + 1).padStart(2, '0')
   return `${newY}-${newM}`
 }
 
-// Simple Levenshtein distance for fuzzy typo tolerance
-function levenshteinDistance(a: string, b: string): number {
-  const m = a.length
-  const n = b.length
-  if (m === 0) return n
-  if (n === 0) return m
-
-  const d: number[][] = []
-  for (let i = 0; i <= m; i++) d[i] = [i]
-  for (let j = 0; j <= n; j++) d[0][j] = j
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1
-      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
-    }
-  }
-  return d[m][n]
+function formatTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = dayjs(iso)
+  return d.isValid() ? d.format('hh:mm A') : '—'
 }
 
-function isFuzzyMatch(word: string, token: string): boolean {
-  if (word.includes(token)) return true
-  if (token.length >= 4) {
-    const dist = levenshteinDistance(word, token)
-    if (dist <= 1 && token.length <= 6) return true
-    if (dist <= 2 && token.length > 6) return true
-  }
-  return false
+function formatDuration(minutes: number): string {
+  if (!minutes || minutes <= 0) return '0m'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
 }
 
-// ─── HIGH-PERFORMANCE LIGHTWEIGHT MATRIX CELL ───
+// ─── MEMOIZED MATRIX CELL COMPONENT ───
 interface MatrixCellProps {
   status: DashboardAttendanceStatus
   isToday: boolean
@@ -230,13 +117,12 @@ const MatrixCell = memo<MatrixCellProps>(({ status, isToday, onHover, onLeave })
     <TableCell
       align="center"
       sx={{
-        p: '4px 2px',
-        width: 44,
-        minWidth: 44,
-        bgcolor: isToday ? 'primary.50' : undefined,
-        borderLeft: isToday ? '1px solid' : undefined,
-        borderRight: isToday ? '1px solid' : undefined,
-        borderColor: isToday ? 'primary.light' : undefined,
+        p: 0.5,
+        minWidth: 38,
+        maxWidth: 38,
+        borderRight: '1px solid',
+        borderColor: 'divider',
+        bgcolor: isToday ? 'action.hover' : 'inherit',
       }}
     >
       <Box
@@ -365,139 +251,63 @@ const SharedDetailPopover: React.FC<SharedDetailPopoverProps> = ({ active, onClo
   const { emp, day, anchorEl } = active
   const cell = emp.days[day.date]
   const status: DashboardAttendanceStatus = cell ? cell.status : 'UNRECORDED'
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.UNRECORDED
 
   return (
-    <Popover
+    <Popper
       open={Boolean(anchorEl)}
       anchorEl={anchorEl}
-      onClose={onClose}
-      disableRestoreFocus
-      anchorOrigin={{
-        vertical: 'bottom',
-        horizontal: 'center',
-      }}
-      transformOrigin={{
-        vertical: 'top',
-        horizontal: 'center',
-      }}
-      slotProps={{
-        paper: {
-          onMouseEnter: () => {},
-          onMouseLeave: onClose,
-          sx: {
-            bgcolor: '#1e293b',
-            color: '#ffffff',
-            boxShadow: 8,
-            borderRadius: 2,
-            p: 1.5,
-            border: '1px solid rgba(255,255,255,0.12)',
-            minWidth: 220,
-            maxWidth: 280,
-            pointerEvents: 'auto',
-          },
-        },
-      }}
+      placement="bottom"
+      transition
       sx={{
+        zIndex: 1400,
         pointerEvents: 'none',
       }}
     >
-      {/* Header: Name + Date + Status Badge */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1 }}>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="subtitle2" fontWeight={700} noWrap sx={{ fontSize: '0.8125rem', color: '#ffffff' }}>
-            {emp.displayName}
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.6875rem', display: 'block' }}>
-            {formatDatePretty(day.date)} • {day.dayOfWeek}
-          </Typography>
-        </Box>
-        <Chip
-          label={config.label}
-          size="small"
-          sx={{
-            bgcolor: config.bg,
-            color: config.color,
-            border: '1px solid',
-            borderColor: config.border,
-            fontWeight: 700,
-            fontSize: '0.625rem',
-            height: 20,
-          }}
-        />
-      </Box>
-
-      <Divider sx={{ my: 0.75, borderColor: 'rgba(255, 255, 255, 0.15)' }} />
-
-      {/* Body per Status */}
-      {status === 'HOLIDAY' ? (
-        <Typography variant="caption" sx={{ color: '#ffffff', display: 'block', fontSize: '0.75rem' }}>
-          <strong>Holiday:</strong> {cell?.holidayName || day.holidayName || 'Official Holiday'}
-        </Typography>
-      ) : status === 'WEEKEND' ? (
-        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.8)', display: 'block', fontSize: '0.75rem' }}>
-          Weekly Off / Weekend
-        </Typography>
-      ) : status === 'ON_LEAVE' || status === 'HALF_DAY_LEAVE' || status === 'PENDING_LEAVE' ? (
-        <Stack spacing={0.5}>
-          <Typography variant="caption" sx={{ color: '#ffffff', fontSize: '0.75rem' }}>
-            <strong>Leave:</strong> {cell?.leaveType || 'General Leave'}
-          </Typography>
-          {cell?.leaveDuration && (
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.75rem' }}>
-              <strong>Duration:</strong> {cell.leaveDuration}
-            </Typography>
-          )}
-          {cell?.checkIn && (
-            <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Check-In:</Typography>
-                <Typography variant="caption" sx={{ color: '#ffffff', fontWeight: 600 }}>{formatTime(cell.checkIn)}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Check-Out:</Typography>
-                <Typography variant="caption" sx={{ color: '#ffffff', fontWeight: 600 }}>{formatTime(cell.checkOut)}</Typography>
-              </Box>
-            </>
-          )}
-        </Stack>
-      ) : status === 'PRESENT' || status === 'PARTIAL' || status === 'ABSENT' ? (
-        <Stack spacing={0.5}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Check-In:</Typography>
-            <Typography variant="caption" sx={{ color: '#ffffff', fontWeight: 600 }}>{formatTime(cell?.checkIn ?? null)}</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Check-Out:</Typography>
-            <Typography variant="caption" sx={{ color: '#ffffff', fontWeight: 600 }}>
-              {cell?.checkOut ? formatTime(cell.checkOut) : cell?.checkIn ? 'In progress' : '—'}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>Presence:</Typography>
-            <Typography variant="caption" sx={{ color: '#ffffff', fontWeight: 700 }}>{formatDuration(cell?.totalMinutes ?? 0)}</Typography>
-          </Box>
-          {cell?.isAutoPresent && (
-            <Typography variant="caption" sx={{ color: '#a5d6a7', mt: 0.5, display: 'block', fontSize: '0.6875rem' }}>
-              • Auto-Present Policy Applied
-            </Typography>
-          )}
-          {cell?.isExempt && (
-            <Typography variant="caption" sx={{ color: '#90caf9', mt: 0.5, display: 'block', fontSize: '0.6875rem' }}>
-              • Attendance Exempt
-            </Typography>
-          )}
-        </Stack>
-      ) : (
-        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.75rem' }}>
-          No attendance recorded
-        </Typography>
+      {({ TransitionProps }) => (
+        <Fade {...TransitionProps} timeout={150}>
+          <Paper
+            elevation={8}
+            onMouseEnter={() => {}}
+            onMouseLeave={onClose}
+            sx={{
+              bgcolor: '#1e293b',
+              color: '#ffffff',
+              borderRadius: 2,
+              p: 1.5,
+              border: '1px solid rgba(255,255,255,0.12)',
+              minWidth: 260,
+              maxWidth: 340,
+              pointerEvents: 'auto',
+              mt: 0.5,
+            }}
+          >
+            <DaySessionDetail
+              date={day.date}
+              dayOfWeek={day.dayOfWeek}
+              status={status}
+              employeeName={emp.displayName}
+              employeeCode={emp.employeeCode}
+              designationOrDept={emp.designationName || emp.departmentName}
+              totalMinutes={cell?.totalMinutes ?? 0}
+              sessions={cell?.sessions ?? []}
+              checkIn={cell?.checkIn}
+              checkOut={cell?.checkOut}
+              leaveType={cell?.leaveType}
+              leaveDuration={cell?.leaveDuration}
+              holidayName={cell?.holidayName || day.holidayName}
+              isAutoPresent={cell?.isAutoPresent}
+              isExempt={cell?.isExempt}
+              themeMode="dark"
+              showEmployeeHeader={true}
+            />
+          </Paper>
+        </Fade>
       )}
-    </Popover>
+    </Popper>
   )
 }
 
-// ─── METRIC CARD DETAIL POPOVER (PRESENT, ABSENT, ON LEAVE, PENDING APPROVAL) ───
+// ─── METRIC CARD DETAIL POPOVER (PRESENT, ABSENT, ON LEAVE, PENDING APPROVAL) WITH SEARCH ───
 type MetricCategory = 'PRESENT' | 'ABSENT' | 'ON_LEAVE' | 'PENDING'
 
 interface MetricDetailPopoverProps {
@@ -547,34 +357,100 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
   loadingPending,
   onNavigateToApprovals,
 }) => {
+  const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    setSearchTerm('')
+  }, [category])
+
   if (!category || !anchorEl) return null
 
   let title = ''
-  let count = 0
   let headerColor = 'primary.main'
   let headerBg = '#f8fafc'
 
   if (category === 'PRESENT') {
-    title = 'Present Employees Today'
-    count = presentEmployees.length
+    title = 'Present Employees'
     headerColor = STATUS_CONFIG.PRESENT.color
     headerBg = STATUS_CONFIG.PRESENT.bg
   } else if (category === 'ABSENT') {
-    title = 'Absent Employees Today'
-    count = absentEmployees.length
+    title = 'Absent Employees'
     headerColor = STATUS_CONFIG.ABSENT.color
     headerBg = STATUS_CONFIG.ABSENT.bg
   } else if (category === 'ON_LEAVE') {
-    title = 'Employees On Leave Today'
-    count = onLeaveEmployees.length
+    title = 'Employees On Leave'
     headerColor = STATUS_CONFIG.ON_LEAVE.color
     headerBg = STATUS_CONFIG.ON_LEAVE.bg
   } else if (category === 'PENDING') {
     title = 'Pending Leave Applications'
-    count = pendingLeaveRequests.length
     headerColor = STATUS_CONFIG.PENDING_LEAVE.color
     headerBg = STATUS_CONFIG.PENDING_LEAVE.bg
   }
+
+  const q = searchTerm.toLowerCase().trim()
+
+  const filteredPresent = presentEmployees.filter((e) => {
+    if (!q) return true
+    return (
+      e.displayName.toLowerCase().includes(q) ||
+      (e.employeeCode && e.employeeCode.toString().includes(q)) ||
+      (e.departmentName && e.departmentName.toLowerCase().includes(q)) ||
+      (e.designationName && e.designationName.toLowerCase().includes(q))
+    )
+  })
+
+  const filteredAbsent = absentEmployees.filter((e) => {
+    if (!q) return true
+    return (
+      e.displayName.toLowerCase().includes(q) ||
+      (e.employeeCode && e.employeeCode.toString().includes(q)) ||
+      (e.departmentName && e.departmentName.toLowerCase().includes(q)) ||
+      (e.designationName && e.designationName.toLowerCase().includes(q))
+    )
+  })
+
+  const filteredOnLeave = onLeaveEmployees.filter((e) => {
+    if (!q) return true
+    return (
+      e.displayName.toLowerCase().includes(q) ||
+      (e.employeeCode && e.employeeCode.toString().includes(q)) ||
+      (e.leaveType && e.leaveType.toLowerCase().includes(q)) ||
+      (e.departmentName && e.departmentName.toLowerCase().includes(q)) ||
+      (e.designationName && e.designationName.toLowerCase().includes(q))
+    )
+  })
+
+  const filteredPending = pendingLeaveRequests.filter((req) => {
+    if (!q) return true
+    const empName = req.employee?.displayName || ''
+    const code = req.employee?.employeeCode?.toString() || ''
+    const lType = req.leaveType?.name || ''
+    const reason = req.reason || ''
+    return (
+      empName.toLowerCase().includes(q) ||
+      code.includes(q) ||
+      lType.toLowerCase().includes(q) ||
+      reason.toLowerCase().includes(q)
+    )
+  })
+
+  const totalCount =
+    category === 'PRESENT'
+      ? presentEmployees.length
+      : category === 'ABSENT'
+      ? absentEmployees.length
+      : category === 'ON_LEAVE'
+      ? onLeaveEmployees.length
+      : pendingLeaveRequests.length
+
+  const filteredCount =
+    category === 'PRESENT'
+      ? filteredPresent.length
+      : category === 'ABSENT'
+      ? filteredAbsent.length
+      : category === 'ON_LEAVE'
+      ? filteredOnLeave.length
+      : filteredPending.length
 
   return (
     <Popover
@@ -592,8 +468,8 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
       slotProps={{
         paper: {
           sx: {
-            width: { xs: 300, sm: 360, md: 400 },
-            maxHeight: 460,
+            width: { xs: 320, sm: 380, md: 420 },
+            maxHeight: 520,
             borderRadius: 2.5,
             boxShadow: 8,
             border: '1px solid',
@@ -622,11 +498,12 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
             {title}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {count} {count === 1 ? 'employee' : 'employees'}
+            {totalCount} {totalCount === 1 ? 'record' : 'records'}
+            {searchTerm ? ` (${filteredCount} matching)` : ''}
           </Typography>
         </Box>
         <Chip
-          label={count}
+          label={totalCount}
           size="small"
           sx={{
             fontWeight: 700,
@@ -638,20 +515,47 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
         />
       </Box>
 
+      {/* Search Input Bar */}
+      <Box sx={{ p: 1.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder={`Search ${category === 'PENDING' ? 'leave requests' : 'employees'} by name, code, dept...`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchTerm('')}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            },
+          }}
+        />
+      </Box>
+
       {/* Scrollable Content List */}
       <Box sx={{ overflowY: 'auto', p: 1.5, flex: 1, maxHeight: 340 }}>
         {/* PRESENT EMPLOYEES */}
         {category === 'PRESENT' && (
           <>
-            {presentEmployees.length === 0 ? (
+            {filteredPresent.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No employees present today.
+                  {searchTerm ? 'No matching present employees found.' : 'No employees present on this date.'}
                 </Typography>
               </Box>
             ) : (
               <Stack spacing={1}>
-                {presentEmployees.map((emp) => (
+                {filteredPresent.map((emp) => (
                   <Paper
                     key={emp.id}
                     variant="outlined"
@@ -721,15 +625,15 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
         {/* ABSENT EMPLOYEES */}
         {category === 'ABSENT' && (
           <>
-            {absentEmployees.length === 0 ? (
+            {filteredAbsent.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No absent employees today. All active employees accounted for.
+                  {searchTerm ? 'No matching absent employees found.' : 'No absent employees on this date.'}
                 </Typography>
               </Box>
             ) : (
               <Stack spacing={1}>
-                {absentEmployees.map((emp) => (
+                {filteredAbsent.map((emp) => (
                   <Paper
                     key={emp.id}
                     variant="outlined"
@@ -762,40 +666,42 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
         {/* ON LEAVE EMPLOYEES */}
         {category === 'ON_LEAVE' && (
           <>
-            {onLeaveEmployees.length === 0 ? (
+            {filteredOnLeave.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No employees on approved leave today.
+                  {searchTerm ? 'No matching on-leave employees found.' : 'No employees on leave on this date.'}
                 </Typography>
               </Box>
             ) : (
               <Stack spacing={1}>
-                {onLeaveEmployees.map((emp) => (
+                {filteredOnLeave.map((emp) => (
                   <Paper
                     key={emp.id}
                     variant="outlined"
                     sx={{
                       p: 1.25,
                       borderRadius: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                      <Box sx={{ minWidth: 0, pr: 1 }}>
-                        <Typography variant="body2" fontWeight={600} noWrap>
-                          {emp.displayName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap display="block">
-                          {emp.employeeCode ? `#${emp.employeeCode} • ` : ''}
-                          {emp.designationName || emp.departmentName || 'Employee'}
-                        </Typography>
-                      </Box>
-                      <Chip label={emp.leaveDuration} size="small" color="info" sx={{ height: 20, fontSize: '0.625rem', fontWeight: 700 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={600} noWrap>
+                        {emp.displayName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap display="block">
+                        {emp.employeeCode ? `#${emp.employeeCode} • ` : ''}
+                        {emp.designationName || emp.departmentName || 'Employee'}
+                      </Typography>
                     </Box>
-                    <Divider sx={{ my: 0.5, borderColor: 'divider' }} />
-                    <Typography variant="caption" color="text.secondary">
-                      <strong>Leave Type:</strong> {emp.leaveType}
-                    </Typography>
+                    <Box sx={{ textAlign: 'right' }}>
+                      <Chip label={emp.leaveType} size="small" color="primary" sx={{ height: 20, fontSize: '0.625rem', fontWeight: 700 }} />
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.6875rem', mt: 0.25 }}>
+                        {emp.leaveDuration}
+                      </Typography>
+                    </Box>
                   </Paper>
                 ))}
               </Stack>
@@ -803,69 +709,59 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
           </>
         )}
 
-        {/* PENDING LEAVE APPLICATIONS */}
+        {/* PENDING LEAVE REQUESTS */}
         {category === 'PENDING' && (
           <>
             {loadingPending ? (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Box sx={{ p: 4, textAlign: 'center' }}>
                 <CircularProgress size={24} />
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
                   Loading pending leave requests...
                 </Typography>
               </Box>
-            ) : pendingLeaveRequests.length === 0 ? (
+            ) : filteredPending.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No pending leave applications awaiting approval.
+                  {searchTerm ? 'No matching pending requests found.' : 'No pending leave applications requiring approval.'}
                 </Typography>
               </Box>
             ) : (
               <Stack spacing={1}>
-                {pendingLeaveRequests.map((req) => (
+                {filteredPending.map((req) => (
                   <Paper
                     key={req.id}
                     variant="outlined"
                     sx={{
                       p: 1.25,
                       borderRadius: 1.5,
-                      borderLeft: '3px solid #e65100',
+                      borderLeft: '3px solid',
+                      borderColor: 'warning.main',
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                       <Box sx={{ minWidth: 0, pr: 1 }}>
                         <Typography variant="body2" fontWeight={600} noWrap>
-                          {req.employee?.displayName || 'Employee'}
+                          {req.employee?.displayName || 'Unknown Employee'}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap display="block">
-                          {req.employee?.employeeCode ? `#${req.employee.employeeCode} • ` : ''}
-                          {req.employee?.designation?.name || 'Staff'}
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {req.leaveType?.name || 'Leave'} • {req.durationValue || 1} day(s)
                         </Typography>
                       </Box>
-                      <Chip
-                        label={req.leaveType?.name || 'Leave'}
-                        size="small"
-                        sx={{
-                          height: 20,
-                          fontSize: '0.625rem',
-                          fontWeight: 700,
-                          bgcolor: '#fff3e0',
-                          color: '#e65100',
-                        }}
-                      />
+                      <Chip label="Pending" size="small" color="warning" sx={{ height: 20, fontSize: '0.625rem', fontWeight: 700 }} />
                     </Box>
-
-                    <Divider sx={{ my: 0.5, borderColor: 'divider' }} />
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', mt: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        <strong>Dates:</strong> {formatDatePretty(req.fromDate)} {req.fromDate !== req.toDate ? `to ${formatDatePretty(req.toDate)}` : ''}
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem', display: 'block' }}>
+                      Dates: {dayjs(req.fromDate).format('DD MMM')} - {dayjs(req.toDate).format('DD MMM YYYY')}
+                    </Typography>
+                    {req.reason && (
+                      <Typography
+                        variant="caption"
+                        color="text.primary"
+                        sx={{ fontSize: '0.6875rem', fontStyle: 'italic', display: 'block', mt: 0.5 }}
+                      >
+                        "{req.reason}"
                       </Typography>
-                      <Typography variant="caption" fontWeight={600} color="text.primary">
-                        {req.durationType === 'FULL_DAY' ? 'Full Day' : req.durationType === 'HALF_DAY' ? 'Half Day' : req.durationType}
-                        {req.durationValue ? ` (${req.durationValue}d)` : ''}
-                      </Typography>
-                    </Box>
+                    )}
                   </Paper>
                 ))}
               </Stack>
@@ -876,20 +772,20 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
 
       {/* Popover Footer Action */}
       {category === 'PENDING' && (
-        <Box sx={{ p: 1.5, pt: 1, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
+        <Box sx={{ p: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
           <Button
             variant="contained"
             color="warning"
-            size="small"
             fullWidth
+            size="small"
             endIcon={<ArrowForwardIcon />}
             onClick={() => {
               onClose()
               onNavigateToApprovals()
             }}
-            sx={{ fontWeight: 700, textTransform: 'none' }}
+            sx={{ fontWeight: 700 }}
           >
-            Review in Leave Dashboard
+            Review in Leave Approvals
           </Button>
         </Box>
       )}
@@ -897,12 +793,15 @@ const MetricDetailPopover: React.FC<MetricDetailPopoverProps> = ({
   )
 }
 
-const AdminAttendanceDashboard: React.FC = () => {
+// ─── MAIN ADMIN ATTENDANCE DASHBOARD COMPONENT ───
+export const AdminAttendanceDashboard: React.FC = () => {
   const navigate = useNavigate()
+  const theme = useTheme()
   const currentMonthStr = useMemo(() => getCurrentMonthStr(), [])
   const todayDateStr = useMemo(() => getTodayDateStr(), [])
 
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr)
+  const [selectedDayDate, setSelectedDayDate] = useState<string>(todayDateStr)
   const [selectedMonthData, setSelectedMonthData] = useState<AttendanceDashboardResponse | null>(null)
   const [currentMonthData, setCurrentMonthData] = useState<AttendanceDashboardResponse | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -995,16 +894,50 @@ const AdminAttendanceDashboard: React.FC = () => {
     }
   }, [selectedMonth, currentMonthStr, currentMonthData])
 
+  // ─── Month Navigation Handlers ───
   const handlePrevMonth = () => {
-    setSelectedMonth((prev) => shiftMonth(prev, -1))
+    const newMonth = shiftMonth(selectedMonth, -1)
+    setSelectedMonth(newMonth)
+    setSelectedDayDate(`${newMonth}-01`)
   }
 
   const handleNextMonth = () => {
-    setSelectedMonth((prev) => shiftMonth(prev, 1))
+    const newMonth = shiftMonth(selectedMonth, 1)
+    setSelectedMonth(newMonth)
+    setSelectedDayDate(`${newMonth}-01`)
   }
 
   const handleCurrentMonth = () => {
     setSelectedMonth(currentMonthStr)
+    setSelectedDayDate(todayDateStr)
+  }
+
+  // ─── Day Navigation Handlers ───
+  const handlePrevDay = () => {
+    const prevDay = dayjs(selectedDayDate).subtract(1, 'day')
+    const newDayStr = prevDay.format('YYYY-MM-DD')
+    const newMonthStr = prevDay.format('YYYY-MM')
+    setSelectedDayDate(newDayStr)
+    if (newMonthStr !== selectedMonth) {
+      setSelectedMonth(newMonthStr)
+    }
+  }
+
+  const handleNextDay = () => {
+    const nextDay = dayjs(selectedDayDate).add(1, 'day')
+    const newDayStr = nextDay.format('YYYY-MM-DD')
+    const newMonthStr = nextDay.format('YYYY-MM')
+    setSelectedDayDate(newDayStr)
+    if (newMonthStr !== selectedMonth) {
+      setSelectedMonth(newMonthStr)
+    }
+  }
+
+  const handleTodayDay = () => {
+    setSelectedDayDate(todayDateStr)
+    if (selectedMonth !== currentMonthStr) {
+      setSelectedMonth(currentMonthStr)
+    }
   }
 
   const handleRefresh = () => {
@@ -1032,39 +965,51 @@ const AdminAttendanceDashboard: React.FC = () => {
     setActiveCell(null)
   }, [])
 
-  // ─── Detailed Lists for Today's Metric Cards ───
-  const presentEmployees = useMemo(() => {
-    const dataSource = isCurrentMonthSelected ? selectedMonthData : currentMonthData
-    if (!dataSource) return []
+  // ─── Detailed Lists for Selected Day's Metric Cards ───
+  const selectedDayDataSource = useMemo(() => {
+    const targetMonth = selectedDayDate.slice(0, 7)
+    if (selectedMonthData && selectedMonthData.month === targetMonth) {
+      return selectedMonthData
+    }
+    if (currentMonthData && currentMonthData.month === targetMonth) {
+      return currentMonthData
+    }
+    if (monthCache.current[targetMonth]) {
+      return monthCache.current[targetMonth]
+    }
+    return selectedMonthData
+  }, [selectedDayDate, selectedMonthData, currentMonthData])
 
-    return dataSource.employees
+  const presentEmployees = useMemo(() => {
+    if (!selectedDayDataSource) return []
+
+    return selectedDayDataSource.employees
       .filter((emp) => {
-        const cell = emp.days[todayDateStr]
+        const cell = emp.days[selectedDayDate]
         return cell && (cell.status === 'PRESENT' || cell.status === 'PARTIAL')
       })
       .map((emp) => {
-        const cell = emp.days[todayDateStr]
+        const cell = emp.days[selectedDayDate]
         return {
           id: emp.employeeId,
           displayName: emp.displayName,
           employeeCode: emp.employeeCode,
           designationName: emp.designationName,
           departmentName: emp.departmentName,
-          checkIn: cell?.checkIn ? formatTime(cell.checkIn) : '—',
+          checkIn: formatTime(cell?.checkIn ?? null),
           checkOut: cell?.checkOut ? formatTime(cell.checkOut) : cell?.checkIn ? 'In progress' : '—',
           totalWorked: formatDuration(cell?.totalMinutes ?? 0),
           isPartial: cell?.status === 'PARTIAL',
         }
       })
-  }, [isCurrentMonthSelected, selectedMonthData, currentMonthData, todayDateStr])
+  }, [selectedDayDataSource, selectedDayDate])
 
   const absentEmployees = useMemo(() => {
-    const dataSource = isCurrentMonthSelected ? selectedMonthData : currentMonthData
-    if (!dataSource) return []
+    if (!selectedDayDataSource) return []
 
-    return dataSource.employees
+    return selectedDayDataSource.employees
       .filter((emp) => {
-        const cell = emp.days[todayDateStr]
+        const cell = emp.days[selectedDayDate]
         return cell && cell.status === 'ABSENT'
       })
       .map((emp) => ({
@@ -1074,140 +1019,91 @@ const AdminAttendanceDashboard: React.FC = () => {
         designationName: emp.designationName,
         departmentName: emp.departmentName,
       }))
-  }, [isCurrentMonthSelected, selectedMonthData, currentMonthData, todayDateStr])
+  }, [selectedDayDataSource, selectedDayDate])
 
   const onLeaveEmployees = useMemo(() => {
-    const dataSource = isCurrentMonthSelected ? selectedMonthData : currentMonthData
-    if (!dataSource) return []
+    if (!selectedDayDataSource) return []
 
-    return dataSource.employees
+    return selectedDayDataSource.employees
       .filter((emp) => {
-        const cell = emp.days[todayDateStr]
+        const cell = emp.days[selectedDayDate]
         return cell && (cell.status === 'ON_LEAVE' || cell.status === 'HALF_DAY_LEAVE')
       })
       .map((emp) => {
-        const cell = emp.days[todayDateStr]
+        const cell = emp.days[selectedDayDate]
         return {
           id: emp.employeeId,
           displayName: emp.displayName,
           employeeCode: emp.employeeCode,
           designationName: emp.designationName,
           departmentName: emp.departmentName,
-          leaveType: cell?.leaveType || 'Approved Leave',
-          leaveDuration: cell?.leaveDuration || (cell?.status === 'HALF_DAY_LEAVE' ? 'Half Day' : 'Full Day'),
+          leaveType: cell?.leaveType || 'General Leave',
+          leaveDuration: cell?.leaveDuration || 'Full Day',
         }
       })
-  }, [isCurrentMonthSelected, selectedMonthData, currentMonthData, todayDateStr])
+  }, [selectedDayDataSource, selectedDayDate])
 
-  // ─── Compute TODAY'S Summary Counts ───
-  const todaySummary = useMemo(() => {
-    const dataSource = isCurrentMonthSelected ? selectedMonthData : currentMonthData
-
-    if (!dataSource) {
-      return {
-        present: 0,
-        partial: 0,
-        absent: 0,
-        onLeave: 0,
-        pendingLeave: pendingLeaveRequests.length,
-        totalEmployees: 0,
-      }
-    }
-
-    let present = 0
-    let partial = 0
-    let absent = 0
-    let onLeave = 0
-
-    for (const emp of dataSource.employees) {
-      const cell = emp.days[todayDateStr]
-      const status: DashboardAttendanceStatus = cell ? cell.status : 'UNRECORDED'
-
-      if (status === 'PRESENT') present++
-      else if (status === 'PARTIAL') partial++
-      else if (status === 'ABSENT') absent++
-      else if (status === 'ON_LEAVE' || status === 'HALF_DAY_LEAVE') onLeave++
-    }
-
+  // ─── Compute Selected Day's Summary Counts ───
+  const selectedDaySummaryCounts = useMemo(() => {
+    const presentOnly = presentEmployees.filter((e) => !e.isPartial).length
+    const partialOnly = presentEmployees.filter((e) => e.isPartial).length
     return {
-      present,
-      partial,
-      absent,
-      onLeave,
+      present: presentOnly,
+      partial: partialOnly,
+      totalPresent: presentEmployees.length,
+      absent: absentEmployees.length,
+      onLeave: onLeaveEmployees.length,
       pendingLeave: pendingLeaveRequests.length,
-      totalEmployees: dataSource.companySummary.totalEmployees || 0,
     }
-  }, [isCurrentMonthSelected, selectedMonthData, currentMonthData, todayDateStr, pendingLeaveRequests])
+  }, [presentEmployees, absentEmployees, onLeaveEmployees, pendingLeaveRequests])
 
-  // Secondary counts for the selected month
+  // ─── Metadata for Selected Month Summary ───
   const selectedMonthMetadata = useMemo(() => {
     if (!selectedMonthData) {
       return {
         workingDays: 0,
-        weekendDays: 0,
         holidayDays: 0,
+        weekendDays: 0,
       }
     }
     const holidayDays = selectedMonthData.days.filter((d) => Boolean(d.holidayName)).length
     const weekendDays = selectedMonthData.days.filter((d) => d.isWeekend).length
-
     return {
       workingDays: selectedMonthData.companySummary.totalWorkingDays || 0,
-      weekendDays,
       holidayDays,
+      weekendDays,
     }
   }, [selectedMonthData])
 
-  // ─── Live Typo-Tolerant Filter for Employee Rows ───
+  // ─── Filtered Matrix Employees via Search ───
   const visibleEmployees = useMemo(() => {
     if (!selectedMonthData) return []
-    const q = searchQuery.trim().toLowerCase()
+    const q = searchQuery.toLowerCase().trim()
     if (!q) return selectedMonthData.employees
 
-    const tokens = q.split(/\s+/).filter(Boolean)
-
     return selectedMonthData.employees.filter((emp) => {
-      const name = (emp.displayName || `${emp.firstName} ${emp.lastName}`).toLowerCase()
-      const firstName = (emp.firstName || '').toLowerCase()
-      const lastName = (emp.lastName || '').toLowerCase()
-      const codeStr = String(emp.employeeCode || '')
-      const codeFormatted = `#${codeStr}`
-      const codeEmp = `emp-${codeStr}`
-      const codeEmpPadded = `emp-${codeStr.padStart(4, '0')}`
-      const desig = (emp.designationName || '').toLowerCase()
-      const dept = (emp.departmentName || '').toLowerCase()
-
-      const searchableText = `${name} ${codeStr} ${codeFormatted} ${codeEmp} ${codeEmpPadded} ${desig} ${dept}`
-      const searchableWords = [
-        ...name.split(/\s+/),
-        firstName,
-        lastName,
-        codeStr,
-        ...desig.split(/\s+/),
-        ...dept.split(/\s+/),
-      ].filter(Boolean)
-
-      return tokens.every((token) => {
-        if (searchableText.includes(token)) return true
-        return searchableWords.some((word) => isFuzzyMatch(word, token))
-      })
+      const matchName = emp.displayName.toLowerCase().includes(q)
+      const matchCode = emp.employeeCode ? emp.employeeCode.toString().includes(q) : false
+      const matchDept = emp.departmentName ? emp.departmentName.toLowerCase().includes(q) : false
+      const matchDesig = emp.designationName ? emp.designationName.toLowerCase().includes(q) : false
+      return matchName || matchCode || matchDept || matchDesig
     })
   }, [selectedMonthData, searchQuery])
 
   return (
-    <Box sx={{ width: '100%', mx: 'auto', pb: 4 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1600, mx: 'auto' }}>
+      {/* ─── Header & Top Actions ─── */}
       <PageHeader
         title="Attendance Dashboard"
-        subtitle="Monthly employee attendance overview and presence matrix"
-        backTo="/admin"
-        backLabel="Back to Dashboard"
-        breadcrumbs={[
-          { label: 'Admin', path: '/admin' },
-          { label: 'Attendance' },
-        ]}
-        action={
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-            {/* Month Navigation Control */}
+        subtitle="Visual company-wide monthly attendance matrix, presence rates, and daily records"
+      />
+
+      {/* ─── Navigation Toolbar ─── */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        {/* Month & Day Steppers */}
+        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+          {/* Month Navigator Pill */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Paper
               elevation={1}
               sx={{
@@ -1255,24 +1151,115 @@ const AdminAttendanceDashboard: React.FC = () => {
                 This Month
               </Button>
             )}
+          </Box>
 
-            <IconButton
-              size="small"
-              onClick={handleRefresh}
-              title="Refresh"
-              disabled={loading}
+          {/* Day Navigator Pill */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Paper
+              elevation={1}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                p: '2px 4px',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+              }}
             >
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Stack>
-        }
-      />
+              <IconButton
+                size="small"
+                onClick={handlePrevDay}
+                title="Previous Day"
+                disabled={loading}
+              >
+                <ChevronLeftIcon />
+              </IconButton>
+              <Typography
+                variant="subtitle2"
+                fontWeight={700}
+                sx={{ px: 1.5, minWidth: 160, textAlign: 'center', userSelect: 'none' }}
+              >
+                {dayjs(selectedDayDate).format('ddd, DD MMM YYYY')}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={handleNextDay}
+                title="Next Day"
+                disabled={loading}
+              >
+                <ChevronRightIcon />
+              </IconButton>
+            </Paper>
 
-      {/* ─── ERROR STATE ─── */}
+            {selectedDayDate !== todayDateStr && (
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<TodayIcon />}
+                onClick={handleTodayDay}
+                disabled={loading}
+              >
+                Today
+              </Button>
+            )}
+          </Box>
+        </Stack>
+
+        {/* Right Toolbar Actions */}
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          {/* Compact Pending Approvals Notification Badge */}
+          <Tooltip
+            title={
+              pendingLeaveRequests.length > 0
+                ? `${pendingLeaveRequests.length} pending leave application${pendingLeaveRequests.length === 1 ? '' : 's'} requiring approval`
+                : 'No pending leave applications'
+            }
+          >
+            <IconButton
+              color={pendingLeaveRequests.length > 0 ? 'warning' : 'default'}
+              onClick={(e) => setActiveMetricPopover({ category: 'PENDING', anchorEl: e.currentTarget })}
+              sx={{
+                border: '1px solid',
+                borderColor: pendingLeaveRequests.length > 0 ? 'warning.main' : 'divider',
+                bgcolor: pendingLeaveRequests.length > 0 ? alpha(theme.palette.warning.main, 0.1) : 'background.paper',
+                p: 1,
+              }}
+            >
+              <Badge badgeContent={pendingLeaveRequests.length} color="error">
+                <PendingActionsIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+
+          {/* Refresh Button */}
+          <IconButton
+            size="small"
+            onClick={handleRefresh}
+            title="Refresh Data"
+            disabled={loading}
+            sx={{ border: '1px solid', borderColor: 'divider', p: 1 }}
+          >
+            <RefreshIcon />
+          </IconButton>
+
+          {/* Manual Entry Button */}
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => navigate('/admin/attendance')}
+            sx={{ fontWeight: 600, px: 2, height: 38 }}
+          >
+            Manual Entry
+          </Button>
+        </Stack>
+      </Box>
+
+      {/* ─── Error Alert ─── */}
       {error && (
         <Alert
           severity="error"
-          sx={{ mb: 3, borderRadius: 2 }}
+          sx={{ mb: 3 }}
           action={
             <Button color="inherit" size="small" onClick={() => fetchSelectedMonth(selectedMonth, true)}>
               Retry
@@ -1283,18 +1270,31 @@ const AdminAttendanceDashboard: React.FC = () => {
         </Alert>
       )}
 
-      {/* ─── LOADING STATE ─── */}
+      {/* ─── Loading Placeholder ─── */}
       {loading && !selectedMonthData && (
         <LoadingState message="Loading monthly attendance matrix..." />
       )}
 
-      {/* ─── DASHBOARD CONTENT ─── */}
+      {/* ─── Selected Day Status Header & 3 Date-Dependent Summary Cards ─── */}
       {selectedMonthData && (
-        <Stack spacing={2.5}>
-          {/* ─── TOP SUMMARY CARDS (ALWAYS TODAY'S COUNTS WITH HOVER/CLICK DRILLDOWN) ─── */}
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                Showing status for:
+              </Typography>
+              <Typography variant="subtitle2" color="text.primary" fontWeight={700}>
+                {dayjs(selectedDayDate).format('dddd, DD MMMM YYYY')}
+              </Typography>
+              {selectedDayDate === todayDateStr && (
+                <Chip label="Today" size="small" color="primary" sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 700 }} />
+              )}
+            </Box>
+          </Box>
+
           <Grid container spacing={2}>
-            {/* Present Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {/* Card 1: Present */}
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Paper
                 elevation={1}
                 onClick={(e) => setActiveMetricPopover({ category: 'PRESENT', anchorEl: e.currentTarget })}
@@ -1304,46 +1304,31 @@ const AdminAttendanceDashboard: React.FC = () => {
                   bgcolor: STATUS_CONFIG.PRESENT.bg,
                   border: '1px solid',
                   borderColor: STATUS_CONFIG.PRESENT.border,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
+                  transition: 'all 0.2s',
                   '&:hover': {
-                    transform: 'translateY(-2px)',
                     boxShadow: 3,
-                    borderColor: STATUS_CONFIG.PRESENT.color,
+                    transform: 'translateY(-2px)',
                   },
                 }}
               >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: 'background.paper',
-                    color: STATUS_CONFIG.PRESENT.color,
-                    display: 'flex',
-                  }}
-                >
-                  <CheckCircleOutlineIcon fontSize="medium" />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="caption" fontWeight={700} color={STATUS_CONFIG.PRESENT.color}>
-                    Present
+                    PRESENT
                   </Typography>
-                  <Typography variant="h5" fontWeight={700} color={STATUS_CONFIG.PRESENT.color} noWrap>
-                    {todaySummary.present}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    {todaySummary.partial > 0 ? `+${todaySummary.partial} partial • ` : ''}
-                    click for details
-                  </Typography>
+                  <CheckCircleOutlineIcon sx={{ color: STATUS_CONFIG.PRESENT.color, fontSize: 20 }} />
                 </Box>
+                <Typography variant="h4" fontWeight={800} color={STATUS_CONFIG.PRESENT.color}>
+                  {selectedDaySummaryCounts.totalPresent}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  {selectedDaySummaryCounts.partial > 0 ? `Includes ${selectedDaySummaryCounts.partial} partial • ` : ''}Click to inspect
+                </Typography>
               </Paper>
             </Grid>
 
-            {/* Absent Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {/* Card 2: Absent */}
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Paper
                 elevation={1}
                 onClick={(e) => setActiveMetricPopover({ category: 'ABSENT', anchorEl: e.currentTarget })}
@@ -1353,45 +1338,31 @@ const AdminAttendanceDashboard: React.FC = () => {
                   bgcolor: STATUS_CONFIG.ABSENT.bg,
                   border: '1px solid',
                   borderColor: STATUS_CONFIG.ABSENT.border,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
+                  transition: 'all 0.2s',
                   '&:hover': {
-                    transform: 'translateY(-2px)',
                     boxShadow: 3,
-                    borderColor: STATUS_CONFIG.ABSENT.color,
+                    transform: 'translateY(-2px)',
                   },
                 }}
               >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: 'background.paper',
-                    color: STATUS_CONFIG.ABSENT.color,
-                    display: 'flex',
-                  }}
-                >
-                  <HighlightOffIcon fontSize="medium" />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="caption" fontWeight={700} color={STATUS_CONFIG.ABSENT.color}>
-                    Absent
+                    ABSENT
                   </Typography>
-                  <Typography variant="h5" fontWeight={700} color={STATUS_CONFIG.ABSENT.color} noWrap>
-                    {todaySummary.absent}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    click for details
-                  </Typography>
+                  <HighlightOffIcon sx={{ color: STATUS_CONFIG.ABSENT.color, fontSize: 20 }} />
                 </Box>
+                <Typography variant="h4" fontWeight={800} color={STATUS_CONFIG.ABSENT.color}>
+                  {selectedDaySummaryCounts.absent}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Employees unrecorded / absent • Click to inspect
+                </Typography>
               </Paper>
             </Grid>
 
-            {/* On Leave Card */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            {/* Card 3: On Leave */}
+            <Grid size={{ xs: 12, sm: 4 }}>
               <Paper
                 elevation={1}
                 onClick={(e) => setActiveMetricPopover({ category: 'ON_LEAVE', anchorEl: e.currentTarget })}
@@ -1401,117 +1372,58 @@ const AdminAttendanceDashboard: React.FC = () => {
                   bgcolor: STATUS_CONFIG.ON_LEAVE.bg,
                   border: '1px solid',
                   borderColor: STATUS_CONFIG.ON_LEAVE.border,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
+                  transition: 'all 0.2s',
                   '&:hover': {
-                    transform: 'translateY(-2px)',
                     boxShadow: 3,
-                    borderColor: STATUS_CONFIG.ON_LEAVE.color,
+                    transform: 'translateY(-2px)',
                   },
                 }}
               >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: 'background.paper',
-                    color: STATUS_CONFIG.ON_LEAVE.color,
-                    display: 'flex',
-                  }}
-                >
-                  <EventAvailableIcon fontSize="medium" />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Typography variant="caption" fontWeight={700} color={STATUS_CONFIG.ON_LEAVE.color}>
-                    On Leave
+                    ON LEAVE
                   </Typography>
-                  <Typography variant="h5" fontWeight={700} color={STATUS_CONFIG.ON_LEAVE.color} noWrap>
-                    {todaySummary.onLeave}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    approved leaves today
-                  </Typography>
+                  <EventAvailableIcon sx={{ color: STATUS_CONFIG.ON_LEAVE.color, fontSize: 20 }} />
                 </Box>
-              </Paper>
-            </Grid>
-
-            {/* Pending Approval Card (Canonical Leave Approvals Metric) */}
-            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-              <Paper
-                elevation={1}
-                onClick={(e) => setActiveMetricPopover({ category: 'PENDING', anchorEl: e.currentTarget })}
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: STATUS_CONFIG.PENDING_LEAVE.bg,
-                  border: '1px solid',
-                  borderColor: STATUS_CONFIG.PENDING_LEAVE.border,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: 3,
-                    borderColor: STATUS_CONFIG.PENDING_LEAVE.color,
-                  },
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 1.5,
-                    bgcolor: 'background.paper',
-                    color: STATUS_CONFIG.PENDING_LEAVE.color,
-                    display: 'flex',
-                  }}
-                >
-                  <PendingActionsIcon fontSize="medium" />
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography variant="caption" fontWeight={700} color={STATUS_CONFIG.PENDING_LEAVE.color}>
-                    Pending Approval
-                  </Typography>
-                  <Typography variant="h5" fontWeight={700} color={STATUS_CONFIG.PENDING_LEAVE.color} noWrap>
-                    {todaySummary.pendingLeave}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" noWrap display="block">
-                    pending leave requests
-                  </Typography>
-                </Box>
+                <Typography variant="h4" fontWeight={800} color={STATUS_CONFIG.ON_LEAVE.color}>
+                  {selectedDaySummaryCounts.onLeave}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Approved full / partial leaves • Click to inspect
+                </Typography>
               </Paper>
             </Grid>
           </Grid>
+        </Box>
+      )}
 
-          {/* ─── SECONDARY METADATA & SEARCH STRIP ─── */}
-          <Paper
-            elevation={0}
+      {/* ─── Search Bar & Matrix Card ─── */}
+      {selectedMonthData && (
+        <Paper elevation={1} sx={{ borderRadius: 2.5, overflow: 'hidden' }}>
+          {/* Filter Bar & Quick Stats */}
+          <Box
             sx={{
               p: 2,
-              borderRadius: 2,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
+              px: 2.5,
               display: 'flex',
-              flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: 2,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
             }}
           >
-            {/* Search Input Filter */}
-            <Box sx={{ minWidth: { xs: '100%', sm: 320, md: 420 }, flex: { sm: 1, md: 'none' } }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Search employee by name, code (#194), role, or team..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
+            {/* Search Input */}
+            <TextField
+              size="small"
+              placeholder="Search employee by name, code, designation..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
                   startAdornment: (
                     <InputAdornment position="start">
                       <SearchIcon fontSize="small" color="action" />
@@ -1519,195 +1431,185 @@ const AdminAttendanceDashboard: React.FC = () => {
                   ),
                   endAdornment: searchQuery ? (
                     <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => setSearchQuery('')} title="Clear search">
+                      <IconButton size="small" onClick={() => setSearchQuery('')}>
                         <ClearIcon fontSize="small" />
                       </IconButton>
                     </InputAdornment>
                   ) : null,
-                }}
-              />
-            </Box>
+                },
+              }}
+              sx={{ width: { xs: '100%', sm: 320, md: 380 } }}
+            />
 
             {/* Quick Summary Counts & Status Legend */}
-            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="center">
+            <Stack direction="row" spacing={2.5} alignItems="center" flexWrap="wrap" useFlexGap>
               <Typography variant="caption" color="text.secondary">
                 <strong>Employees:</strong> {visibleEmployees.length} of {selectedMonthData.companySummary.totalEmployees}
               </Typography>
-              <Divider orientation="vertical" flexItem sx={{ height: 16, my: 'auto' }} />
+              <Divider orientation="vertical" flexItem />
               <Typography variant="caption" color="text.secondary">
                 <strong>Working Days:</strong> {selectedMonthMetadata.workingDays}
               </Typography>
-              <Divider orientation="vertical" flexItem sx={{ height: 16, my: 'auto' }} />
+              <Divider orientation="vertical" flexItem />
               <Typography variant="caption" color="text.secondary">
                 <strong>Holidays:</strong> {selectedMonthMetadata.holidayDays}
               </Typography>
+              <Divider orientation="vertical" flexItem />
+              <Typography variant="caption" color="text.secondary">
+                <strong>Weekends:</strong> {selectedMonthMetadata.weekendDays}
+              </Typography>
             </Stack>
-          </Paper>
+          </Box>
 
-          {/* ─── MONTHLY ATTENDANCE MATRIX TABLE ─── */}
-          <Paper
-            elevation={1}
+          {/* Status Legend Strip */}
+          <Box
             sx={{
-              width: '100%',
-              borderRadius: 2,
-              overflow: 'hidden',
-              border: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            <TableContainer
-              sx={{
-                maxHeight: 'calc(100vh - 380px)',
-                minHeight: 360,
-              }}
-            >
-              <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
-                {/* Table Header: Days of the Month */}
-                <TableHead>
-                  <TableRow>
-                    {/* Sticky Employee Header Cell */}
-                    <TableCell
-                      sx={{
-                        position: 'sticky',
-                        left: 0,
-                        zIndex: 3,
-                        bgcolor: '#f8fafc',
-                        borderRight: '1px solid',
-                        borderColor: 'divider',
-                        minWidth: 190,
-                        maxWidth: 190,
-                        fontWeight: 700,
-                        fontSize: '0.8125rem',
-                      }}
-                    >
-                      Employee ({visibleEmployees.length})
-                    </TableCell>
-
-                    {/* Day Meta Column Headers */}
-                    {selectedMonthData.days.map((d) => {
-                      const isToday = d.date === todayDateStr
-                      const isHoliday = Boolean(d.holidayName)
-
-                      return (
-                        <TableCell
-                          key={d.date}
-                          align="center"
-                          sx={{
-                            p: '6px 2px',
-                            width: 44,
-                            minWidth: 44,
-                            bgcolor: isToday ? 'primary.50' : d.isWeekend ? 'grey.100' : isHoliday ? '#f3e5f5' : '#f8fafc',
-                            borderLeft: isToday ? '1px solid' : undefined,
-                            borderRight: isToday ? '1px solid' : undefined,
-                            borderColor: isToday ? 'primary.light' : undefined,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'block',
-                              fontSize: '0.625rem',
-                              fontWeight: 700,
-                              color: isToday ? 'primary.main' : isHoliday ? '#7b1fa2' : d.isWeekend ? 'text.secondary' : 'text.primary',
-                            }}
-                          >
-                            {d.dayOfWeek}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'block',
-                              fontSize: '0.75rem',
-                              fontWeight: isToday ? 800 : 600,
-                              color: isToday ? 'primary.main' : isHoliday ? '#7b1fa2' : 'inherit',
-                            }}
-                          >
-                            {d.dayNumber}
-                          </Typography>
-                        </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                </TableHead>
-
-                {/* Table Body: Memoized Employee Rows */}
-                <TableBody>
-                  {visibleEmployees.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={selectedMonthData.days.length + 1} align="center" sx={{ py: 6 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {searchQuery
-                            ? `No employees found matching "${searchQuery}"`
-                            : 'No active employees found for this company'}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    visibleEmployees.map((emp) => (
-                      <EmployeeMatrixRow
-                        key={emp.employeeId}
-                        emp={emp}
-                        days={selectedMonthData.days}
-                        todayDateStr={todayDateStr}
-                        onCellHover={handleCellHover}
-                        onCellLeave={handleCellLeave}
-                      />
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
-
-          {/* ─── STATUS LEGEND BAR ─── */}
-          <Paper
-            elevation={0}
-            sx={{
-              p: 1.5,
-              borderRadius: 2,
-              bgcolor: 'background.paper',
-              border: '1px solid',
+              py: 1,
+              px: 2.5,
+              bgcolor: 'grey.50',
+              borderBottom: '1px solid',
               borderColor: 'divider',
               display: 'flex',
+              alignItems: 'center',
               flexWrap: 'wrap',
               gap: 1.5,
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
           >
-            {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-              <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ mr: 0.5 }}>
+              Status Legend:
+            </Typography>
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+              <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Box
                   sx={{
-                    width: 22,
-                    height: 20,
-                    borderRadius: 0.75,
-                    bgcolor: config.bg,
-                    color: config.color,
+                    width: 18,
+                    height: 16,
+                    borderRadius: 0.5,
+                    bgcolor: cfg.bg,
                     border: '1px solid',
-                    borderColor: config.border,
-                    fontSize: '0.625rem',
+                    borderColor: cfg.border,
+                    color: cfg.color,
                     fontWeight: 700,
+                    fontSize: '0.5625rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  {config.short}
+                  {cfg.short}
                 </Box>
-                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: 500 }}>
-                  {config.label}
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
+                  {cfg.label}
                 </Typography>
               </Box>
             ))}
-          </Paper>
-        </Stack>
+          </Box>
+
+          {/* Table Matrix */}
+          <TableContainer sx={{ maxHeight: 600, overflowX: 'auto' }}>
+            <Table stickyHeader size="small" sx={{ borderCollapse: 'separate' }}>
+              <TableHead>
+                <TableRow>
+                  {/* Sticky Column: Employee */}
+                  <TableCell
+                    sx={{
+                      position: 'sticky',
+                      left: 0,
+                      zIndex: 3,
+                      bgcolor: 'background.paper',
+                      borderRight: '1px solid',
+                      borderColor: 'divider',
+                      fontWeight: 700,
+                      minWidth: 190,
+                      maxWidth: 190,
+                      py: 1,
+                      px: 1.5,
+                    }}
+                  >
+                    Employee
+                  </TableCell>
+
+                  {/* Dynamic Date Columns */}
+                  {selectedMonthData.days.map((d) => {
+                    const isToday = d.date === todayDateStr
+                    const isSelectedDay = d.date === selectedDayDate
+                    return (
+                      <TableCell
+                        key={d.date}
+                        align="center"
+                        onClick={() => setSelectedDayDate(d.date)}
+                        sx={{
+                          p: 0.5,
+                          minWidth: 38,
+                          maxWidth: 38,
+                          borderRight: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: isSelectedDay
+                            ? alpha(theme.palette.primary.main, 0.15)
+                            : isToday
+                            ? alpha(theme.palette.warning.main, 0.1)
+                            : d.isWeekend
+                            ? 'grey.100'
+                            : 'background.paper',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          },
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          fontWeight={isToday || isSelectedDay ? 800 : 600}
+                          color={isSelectedDay ? 'primary.main' : isToday ? 'warning.dark' : 'text.primary'}
+                          sx={{ fontSize: '0.6875rem', display: 'block', lineHeight: 1.1 }}
+                        >
+                          {d.dayNumber}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color={isSelectedDay ? 'primary.main' : 'text.secondary'}
+                          sx={{ fontSize: '0.5625rem', textTransform: 'uppercase' }}
+                        >
+                          {d.dayOfWeek.slice(0, 2)}
+                        </Typography>
+                      </TableCell>
+                    )
+                  })}
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {visibleEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={selectedMonthData.days.length + 1} align="center" sx={{ py: 6 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {searchQuery
+                          ? `No employees matching "${searchQuery}".`
+                          : 'No active employees found for this organization.'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  visibleEmployees.map((emp) => (
+                    <EmployeeMatrixRow
+                      key={emp.employeeId}
+                      emp={emp}
+                      days={selectedMonthData.days}
+                      todayDateStr={todayDateStr}
+                      onCellHover={handleCellHover}
+                      onCellLeave={handleCellLeave}
+                    />
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       )}
 
-      {/* ─── SHARED DETAIL CARD POPOVER FOR MATRIX CELL ─── */}
+      {/* ─── Shared Popovers ─── */}
       <SharedDetailPopover active={activeCell} onClose={handleCellLeave} />
 
-      {/* ─── TOP METRIC CARDS DETAIL POPOVER (PRESENT, ABSENT, ON LEAVE, PENDING APPROVAL) ─── */}
       <MetricDetailPopover
         category={activeMetricPopover?.category ?? null}
         anchorEl={activeMetricPopover?.anchorEl ?? null}

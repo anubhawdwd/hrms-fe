@@ -297,6 +297,7 @@ export const leaveApi = {
   createHoliday: async (payload: {
     name: string
     date: string
+    type?: "NORMAL" | "RESTRICTED"
   }): Promise<Holiday> => {
     const { data } = await apiClient.post<Holiday>(
       '/api/leave/holidays',

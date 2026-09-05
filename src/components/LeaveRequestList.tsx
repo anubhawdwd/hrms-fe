@@ -1,3 +1,4 @@
+import { formatLeaveDays } from '../utils/format.utils'
 // src/components/LeaveRequestList.tsx
 import {
   Box,
@@ -41,7 +42,7 @@ const formatDuration = (req: LeaveRequest): string => {
   switch (req.durationType) {
     case 'FULL_DAY': {
       const days = req.durationValue
-      return `${days} day${days > 1 ? 's' : ''}`
+      return `${formatLeaveDays(days)} day${days > 1 ? 's' : ''}`
     }
     case 'HALF_DAY':
       return 'Half Day'
@@ -56,7 +57,7 @@ const formatDuration = (req: LeaveRequest): string => {
       return parts.join(' ') || '0m'
     }
     default:
-      return `${req.durationValue}`
+      return formatLeaveDays(req.durationValue)
   }
 }
 

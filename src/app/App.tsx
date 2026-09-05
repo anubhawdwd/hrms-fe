@@ -2,6 +2,8 @@
 import { Provider } from "react-redux"
 import { BrowserRouter } from "react-router-dom"
 import { ThemeProvider, CssBaseline } from "@mui/material"
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider"
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"
 import { Toaster } from "react-hot-toast"
 
 import { store } from "../store/store"
@@ -16,11 +18,13 @@ const App = () => {
       <Provider store={store}>
         <BrowserRouter>
           <ThemeProvider theme={theme}>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
             <CssBaseline />
             <Toaster position="top-right" toastOptions={{ duration: 1000 }} />
             <AuthBootstrap>
               <AppRoutes />
             </AuthBootstrap>
+          </LocalizationProvider>
           </ThemeProvider>
         </BrowserRouter>
       </Provider>

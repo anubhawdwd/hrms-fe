@@ -1,5 +1,6 @@
 // src/components/ApplyLeaveModal.tsx
-import React, { useState, useMemo } from 'react'
+import { formatLeaveDays } from "../utils/format.utils"
+import React, { useState, useMemo } from "react"
 import {
   Dialog,
   DialogTitle,
@@ -15,11 +16,15 @@ import {
   useTheme,
   Divider,
   Chip,
-} from '@mui/material'
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import { useLeaveTypes, useLeaveBalances } from '../hooks/useLeave'
-import { leaveApi } from '../api/leave.api'
-import type { ApplyLeaveRequest } from '../types/leave.types'
+  Alert,
+} from "@mui/material"
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth"
+import CelebrationIcon from "@mui/icons-material/Celebration"
+import { useLeaveTypes, useLeaveBalances, useHolidays } from "../hooks/useLeave"
+import { leaveApi } from "../api/leave.api"
+import type { ApplyLeaveRequest } from "../types/leave.types"
+import dayjs from "dayjs"
+import { DatePicker } from "@mui/x-date-pickers/DatePicker"
 
 interface Props {
   open: boolean
@@ -32,6 +37,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
   const currentYear = new Date().getFullYear()
   const { types, loading: typesLoading } = useLeaveTypes()
   const { balances } = useLeaveBalances(currentYear)
+  const { holidays } = useHolidays()
 
   // Filter available leave types:
   // 1. Unpaid Leave / LWP is ALWAYS available (requires no allocation, balance > 0 not required)
@@ -39,7 +45,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
   const availableLeaveTypes = useMemo(() => {
     return types.filter((t) => {
       if (t.isActive === false) return false
-      if (t.isPaid === false || t.code === 'LWP') return true
+      if (t.isPaid === false || t.code === "LWP") return true
 
       const b = balances.find(
         (bal) =>
@@ -51,28 +57,56 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
     })
   }, [types, balances])
 
-  const [leaveTypeId, setLeaveTypeId] = useState('')
-  const [fromDate, setFromDate] = useState('')
-  const [toDate, setToDate] = useState('')
-  const [reason, setReason] = useState('')
+  const [leaveTypeId, setLeaveTypeId] = useState("")
+  const [fromDate, setFromDate] = useState("")
+  const [toDate, setToDate] = useState("")
+  const [reason, setReason] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Computed duration summary (Full Day)
+  // Detect overlapping holidays in selected range
+  const holidayOverlap = useMemo(() => {
+    if (!fromDate || !toDate) return { normal: [], restricted: [] }
+    const start = dayjs(fromDate)
+    const end = dayjs(toDate)
+    if (!start.isValid() || !end.isValid() || start.isAfter(end)) {
+      return { normal: [], restricted: [] }
+    }
+
+    const normal: { name: string; date: string }[] = []
+    const restricted: { name: string; date: string }[] = []
+
+    for (const h of holidays) {
+      const hDate = dayjs(h.date)
+      if ((hDate.isSame(start, "day") || hDate.isAfter(start, "day")) && (hDate.isSame(end, "day") || hDate.isBefore(end, "day"))) {
+        const formattedDate = hDate.format("DD MMM YYYY")
+        if (h.type === "RESTRICTED") {
+          restricted.push({ name: h.name, date: formattedDate })
+        } else {
+          normal.push({ name: h.name, date: formattedDate })
+        }
+      }
+    }
+
+    return { normal, restricted }
+  }, [fromDate, toDate, holidays])
+
+  // Duration calculation helper
   const durationSummary = useMemo(() => {
     if (!fromDate || !toDate) return null
-    const from = new Date(fromDate)
-    const to = new Date(toDate)
-    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return null
-    const diff = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    return `${diff} full day${diff > 1 ? 's' : ''}`
+    const start = new Date(fromDate)
+    const end = new Date(toDate)
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return null
+
+    const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    return `${diff} full day${diff > 1 ? "s" : ""}`
   }, [fromDate, toDate])
 
   const resetForm = () => {
-    setLeaveTypeId('')
-    setFromDate('')
-    setToDate('')
-    setReason('')
+    setLeaveTypeId("")
+    setFromDate("")
+    setToDate("")
+    setReason("")
     setError(null)
   }
 
@@ -80,19 +114,23 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
     setError(null)
 
     if (!leaveTypeId) {
-      setError('Please select a leave type')
+      setError("Please select a leave type")
       return
     }
     if (!fromDate) {
-      setError('Please select a start date')
+      setError("Please select a start date")
       return
     }
     if (!toDate) {
-      setError('Please select an end date')
+      setError("Please select an end date")
       return
     }
     if (new Date(fromDate) > new Date(toDate)) {
-      setError('End date must be on or after start date')
+      setError("End date must be on or after start date")
+      return
+    }
+    if (holidayOverlap.normal.length > 0) {
+      setError(`Cannot apply leave on official company holiday (${holidayOverlap.normal.map((n) => `${n.name} on ${n.date}`).join(", ")}).`)
       return
     }
 
@@ -103,7 +141,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
         leaveTypeId,
         fromDate,
         toDate,
-        durationType: 'FULL_DAY',
+        durationType: "FULL_DAY",
       }
 
       if (reason.trim()) {
@@ -114,7 +152,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
       resetForm()
       onSuccess()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to apply leave')
+      setError(err?.response?.data?.message || "Failed to apply leave")
     } finally {
       setSubmitting(false)
     }
@@ -132,7 +170,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
       maxWidth="sm"
       fullWidth
       PaperProps={{
-        sx: { borderRadius: '16px', overflow: 'hidden' },
+        sx: { borderRadius: "16px", overflow: "hidden" },
       }}
     >
       {/* Header */}
@@ -141,21 +179,21 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
           pb: 1,
           pt: 3,
           px: 3,
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 1.5,
         }}
       >
         <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             width: 40,
             height: 40,
-            borderRadius: '12px',
+            borderRadius: "12px",
             bgcolor: alpha(theme.palette.primary.main, 0.08),
-            color: 'primary.main',
+            color: "primary.main",
           }}
         >
           <CalendarMonthIcon />
@@ -171,7 +209,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
       </DialogTitle>
 
       <DialogContent sx={{ px: 3, pt: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
           {/* Leave Type Selector */}
           <TextField
             select
@@ -185,11 +223,11 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
             fullWidth
             size="small"
             sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+              "& .MuiOutlinedInput-root": { borderRadius: "10px" },
             }}
           >
             {availableLeaveTypes.map((t) => {
-              const isUnpaid = t.isPaid === false || t.code === 'LWP'
+              const isUnpaid = t.isPaid === false || t.code === "LWP"
               const b = balances.find(
                 (bal) =>
                   bal.leaveTypeId === t.id ||
@@ -199,7 +237,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
 
               return (
                 <MenuItem key={t.id} value={t.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                     <span>{t.name}</span>
                     {isUnpaid ? (
                       <Chip
@@ -207,15 +245,15 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
                         size="small"
                         color="warning"
                         variant="outlined"
-                        sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                        sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 600 }}
                       />
                     ) : b ? (
                       <Chip
-                        label={`${b.remaining} days available`}
+                        label={`${formatLeaveDays(b.remaining)} days available`}
                         size="small"
                         color="success"
                         variant="outlined"
-                        sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                        sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 600 }}
                       />
                     ) : null}
                   </Box>
@@ -225,57 +263,81 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
           </TextField>
 
           {/* Full Day: From Date -> To Date */}
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <DatePicker
               label="From Date"
-              type="date"
-              value={fromDate}
-              onChange={(e) => {
-                setFromDate(e.target.value)
-                if (!toDate || new Date(e.target.value) > new Date(toDate)) {
-                  setToDate(e.target.value)
+              value={fromDate ? dayjs(fromDate) : null}
+              onChange={(newValue) => {
+                const valStr = newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : ""
+                setFromDate(valStr)
+                if (valStr && (!toDate || dayjs(valStr).isAfter(dayjs(toDate)))) {
+                  setToDate(valStr)
                 }
                 setError(null)
               }}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-              size="small"
-              sx={{
-                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  size: "small",
+                  sx: { "& .MuiOutlinedInput-root": { borderRadius: "10px" } },
+                },
               }}
             />
-            <TextField
+            <DatePicker
               label="To Date"
-              type="date"
-              value={toDate}
-              onChange={(e) => {
-                setToDate(e.target.value)
+              value={toDate ? dayjs(toDate) : null}
+              minDate={fromDate ? dayjs(fromDate) : undefined}
+              onChange={(newValue) => {
+                const valStr = newValue && newValue.isValid() ? newValue.format("YYYY-MM-DD") : ""
+                setToDate(valStr)
                 setError(null)
               }}
               slotProps={{
-                inputLabel: { shrink: true },
-                htmlInput: { min: fromDate || undefined },
-              }}
-              fullWidth
-              size="small"
-              sx={{
-                '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+                textField: {
+                  fullWidth: true,
+                  size: "small",
+                  sx: { "& .MuiOutlinedInput-root": { borderRadius: "10px" } },
+                },
               }}
             />
           </Box>
+
+          {/* Holiday Overlay Notices */}
+          {holidayOverlap.normal.length > 0 && (
+            <Alert severity="error" sx={{ borderRadius: "10px", py: 0.5 }}>
+              Selected range includes official company holiday: <strong>{holidayOverlap.normal.map((n) => `${n.name} (${n.date})`).join(", ")}</strong>. Leave cannot be applied on official holidays.
+            </Alert>
+          )}
+
+          {holidayOverlap.restricted.length > 0 && (
+            <Alert
+              icon={<CelebrationIcon fontSize="inherit" color="warning" />}
+              severity="info"
+              sx={{
+                borderRadius: "10px",
+                py: 0.5,
+                bgcolor: alpha(theme.palette.warning.main, 0.08),
+                color: theme.palette.warning.dark,
+                border: "1px solid",
+                borderColor: alpha(theme.palette.warning.main, 0.2),
+              }}
+            >
+              Includes restricted holiday: <strong>{holidayOverlap.restricted.map((r) => `${r.name} (Restricted) on ${r.date}`).join(", ")}</strong>. This is an optional holiday — your leave request will be applied normally.
+            </Alert>
+          )}
 
           {/* Duration Summary Badge */}
           {durationSummary && (
             <Box
               sx={{
                 p: 1.5,
-                borderRadius: '10px',
+                borderRadius: "10px",
                 bgcolor: alpha(theme.palette.info.main, 0.08),
-                border: '1px solid',
+                border: "1px solid",
                 borderColor: alpha(theme.palette.info.main, 0.2),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
               <Typography variant="caption" fontWeight={600} color="info.main">
@@ -298,7 +360,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
             fullWidth
             size="small"
             sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: '10px' },
+              "& .MuiOutlinedInput-root": { borderRadius: "10px" },
             }}
           />
 
@@ -310,8 +372,8 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
               sx={{
                 bgcolor: alpha(theme.palette.error.main, 0.08),
                 p: 1.5,
-                borderRadius: '8px',
-                border: '1px solid',
+                borderRadius: "8px",
+                border: "1px solid",
                 borderColor: alpha(theme.palette.error.main, 0.2),
               }}
             >
@@ -328,17 +390,17 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
           onClick={handleClose}
           color="inherit"
           disabled={submitting}
-          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+          sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
         >
           Cancel
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={submitting}
+          disabled={submitting || holidayOverlap.normal.length > 0}
           sx={{
-            borderRadius: '8px',
-            textTransform: 'none',
+            borderRadius: "8px",
+            textTransform: "none",
             fontWeight: 700,
             px: 3,
             minWidth: 120,
@@ -347,7 +409,7 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
           {submitting ? (
             <CircularProgress size={20} color="inherit" />
           ) : (
-            'Submit Request'
+            "Submit Request"
           )}
         </Button>
       </DialogActions>

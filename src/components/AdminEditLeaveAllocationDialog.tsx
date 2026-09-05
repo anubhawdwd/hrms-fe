@@ -1,4 +1,5 @@
 // src/components/AdminEditLeaveAllocationDialog.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -217,7 +218,7 @@ export const AdminEditLeaveAllocationDialog: React.FC<Props> = ({
                     Available
                   </Typography>
                   <Typography variant="h6" fontWeight={700} color="primary.main">
-                    {currentAvailable} {currentAvailable === 1 ? 'day' : 'days'}
+                    {formatLeaveDays(currentAvailable)} {currentAvailable === 1 ? 'day' : 'days'}
                   </Typography>
                 </Box>
                 <Box sx={{ flex: 1, textAlign: 'center' }}>
@@ -225,7 +226,7 @@ export const AdminEditLeaveAllocationDialog: React.FC<Props> = ({
                     Booked
                   </Typography>
                   <Typography variant="h6" fontWeight={700} color="text.secondary">
-                    {currentBooked} {currentBooked === 1 ? 'day' : 'days'}
+                    {formatLeaveDays(currentBooked)} {currentBooked === 1 ? 'day' : 'days'}
                   </Typography>
                 </Box>
               </Stack>
@@ -234,7 +235,7 @@ export const AdminEditLeaveAllocationDialog: React.FC<Props> = ({
             {/* Existing Balance (READ ONLY) */}
             <TextField
               label="Existing Balance"
-              value={`${currentAvailable} days`}
+              value={`${formatLeaveDays(currentAvailable)} days`}
               fullWidth
               size="small"
               slotProps={{

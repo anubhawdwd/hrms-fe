@@ -51,10 +51,13 @@ export interface LeaveReportEmployeeRow {
   leaveTypeMetrics: Record<
     string,
     {
-      booked: number
+      used: number
       balance: number
+      booked?: number
     }
   >
+  paidLeavesUsed: number
+  paidLeavesBalance: number
   paidLeavesTotal: number
   lwpTotal: number
   absentDays: number

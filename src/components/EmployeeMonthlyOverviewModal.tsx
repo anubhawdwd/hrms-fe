@@ -1,3 +1,4 @@
+import DaySessionDetail from "./DaySessionDetail"
 // src/components/EmployeeMonthlyOverviewModal.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
@@ -14,7 +15,6 @@ import {
   Chip,
   CircularProgress,
   Popover,
-  Divider,
   useTheme,
   alpha,
 } from '@mui/material'
@@ -50,19 +50,6 @@ function formatMinutes(minutes: number): string {
   if (h === 0) return `${m}m`
   if (m === 0) return `${h}h`
   return `${h}h ${m}m`
-}
-
-function formatTime(ts: string | null | undefined): string {
-  if (!ts) return ''
-  if (/^\d{2}:\d{2}$/.test(ts)) {
-    const [h, m] = ts.split(':')
-    const hour = parseInt(h, 10)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const formattedH = hour % 12 === 0 ? 12 : hour % 12
-    return `${formattedH}:${m} ${ampm}`
-  }
-  const d = dayjs(ts)
-  return d.isValid() ? d.format('hh:mm A') : ts
 }
 
 const STATUS_CONFIG: Record<
@@ -675,119 +662,40 @@ export const EmployeeMonthlyOverviewModal: React.FC<Props> = ({ open, onClose })
           transformOrigin={{ vertical: 'top', horizontal: 'center' }}
           PaperProps={{
             sx: {
-              p: 2.5,
-              minWidth: 260,
-              maxWidth: 320,
               borderRadius: 2,
-              boxShadow: 4,
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+              p: 2,
+              bgcolor: '#1e293b',
+              color: '#ffffff',
+              border: '1px solid rgba(255,255,255,0.12)',
+              minWidth: 280,
+              maxWidth: 360,
             },
           }}
         >
           {activeCell && (
-            <Stack spacing={1.5}>
-              <Box>
-                <Typography variant="subtitle2" fontWeight={800}>
-                  {dayjs(activeCell.date).format('dddd, DD MMMM YYYY')}
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  {(() => {
-                    const st = activeCell.cell?.status || (activeCell.holidayName ? 'HOLIDAY' : activeCell.isWeekend ? 'WEEKEND' : 'UNRECORDED')
-                    const cfg = STATUS_CONFIG[st] || STATUS_CONFIG.UNRECORDED
-                    return (
-                      <Chip
-                        icon={cfg.icon as any}
-                        label={cfg.label}
-                        size="small"
-                        sx={{ bgcolor: cfg.bg, color: cfg.color, fontWeight: 700, border: `1px solid ${alpha(cfg.color, 0.3)}` }}
-                      />
-                    )
-                  })()}
-                </Box>
-              </Box>
-
-              <Divider />
-
-              {/* Present / Worked Time Section */}
-              {(activeCell.cell?.totalMinutes || 0) > 0 && (
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      Presence Duration:
-                    </Typography>
-                    <Typography variant="body2" fontWeight={700} color="primary.main">
-                      {formatMinutes(activeCell.cell!.totalMinutes)}
-                    </Typography>
-                  </Box>
-                  {activeCell.cell?.checkIn && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        First Punch In:
-                      </Typography>
-                      <Typography variant="body2" fontWeight={600}>
-                        {formatTime(activeCell.cell.checkIn)}
-                      </Typography>
-                    </Box>
-                  )}
-                  {activeCell.cell?.checkOut && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Last Punch Out:
-                      </Typography>
-                      <Typography variant="body2" fontWeight={600}>
-                        {formatTime(activeCell.cell.checkOut)}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              )}
-
-              {/* Leave Section (Shows for both full-day and partial/hourly leaves) */}
-              {activeCell.cell?.leaveType && (
-                <Stack spacing={0.75} sx={{ bgcolor: '#f8fafc', p: 1.25, borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                    LEAVE DETAILS
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Type:
-                    </Typography>
-                    <Typography variant="body2" fontWeight={700} color="secondary.main">
-                      {activeCell.cell.leaveType}
-                    </Typography>
-                  </Box>
-                  {activeCell.cell.leaveDuration && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Duration:
-                      </Typography>
-                      <Typography variant="caption" fontWeight={600}>
-                        {activeCell.cell.leaveDuration.replace('_', ' ')}
-                      </Typography>
-                    </Box>
-                  )}
-                </Stack>
-              )}
-
-              {/* Holiday Section */}
-              {activeCell.holidayName && (
-                <Box sx={{ bgcolor: '#ecfeff', p: 1.25, borderRadius: 1.5, border: '1px solid #a5f3fc' }}>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700}>
-                    HOLIDAY
-                  </Typography>
-                  <Typography variant="body2" fontWeight={700} color="#0891b2">
-                    {activeCell.holidayName}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Override Tags */}
-              {activeCell.cell?.isAutoPresent && (
-                <Chip label="Auto-Present Override" size="small" color="info" sx={{ fontWeight: 600 }} />
-              )}
-              {activeCell.cell?.isExempt && (
-                <Chip label="Attendance Exempt" size="small" color="secondary" sx={{ fontWeight: 600 }} />
-              )}
-            </Stack>
+            <DaySessionDetail
+              date={activeCell.date}
+              status={
+                activeCell.cell?.status ||
+                (activeCell.holidayName
+                  ? 'HOLIDAY'
+                  : activeCell.isWeekend
+                  ? 'WEEKEND'
+                  : 'UNRECORDED')
+              }
+              totalMinutes={activeCell.cell?.totalMinutes || 0}
+              sessions={activeCell.cell?.sessions || []}
+              checkIn={activeCell.cell?.checkIn}
+              checkOut={activeCell.cell?.checkOut}
+              leaveType={activeCell.cell?.leaveType}
+              leaveDuration={activeCell.cell?.leaveDuration}
+              holidayName={activeCell.holidayName}
+              isAutoPresent={activeCell.cell?.isAutoPresent}
+              isExempt={activeCell.cell?.isExempt}
+              themeMode="dark"
+              showEmployeeHeader={false}
+            />
           )}
         </Popover>
       </DialogContent>

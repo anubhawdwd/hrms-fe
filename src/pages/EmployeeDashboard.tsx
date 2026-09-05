@@ -1,4 +1,6 @@
+import DaySessionDetail from '../components/DaySessionDetail'
 // src/pages/EmployeeDashboard.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   Box,
@@ -14,6 +16,8 @@ import {
   Skeleton,
   alpha,
   useTheme,
+  Popper,
+  Fade,
 } from '@mui/material'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
@@ -247,6 +251,15 @@ const EmployeeDashboard = () => {
   const { holidays } = useHolidays()
 
   // Weekly calendar state
+  const [activeDayCell, setActiveDayCell] = useState<{
+    dateStr: string
+    dayData?: any
+    holiday?: any
+    isWeekend: boolean
+    isPreJoining: boolean
+    isToday: boolean
+    anchorEl: HTMLElement
+  } | null>(null)
   const [weekOffset, setWeekOffset] = useState(0)
   const { days: weekDays, loading: weekLoading, load: loadWeekly } =
     useWeeklyAttendance(weekOffset)
@@ -476,7 +489,7 @@ const EmployeeDashboard = () => {
       case 'QUARTER_DAY':
         return 'Quarter Day'
       case 'HOURLY':
-        return `${leaveReq.durationValue}h Leave`
+        return `${formatLeaveDays(leaveReq.durationValue)}h Leave`
       default:
         return 'Leave'
     }
@@ -921,6 +934,7 @@ const EmployeeDashboard = () => {
                   const isWeekend = date.day() === 0 || date.day() === 6
                   const isToday = date.isSame(dayjs(), 'day')
                   const isFuture = date.isAfter(dayjs(), 'day')
+                  const isPreJoining = Boolean(profile?.joiningDate && dateStr < dayjs(profile.joiningDate).format('YYYY-MM-DD'))
 
                   const statusConfig: Record<
                     string,
@@ -948,38 +962,69 @@ const EmployeeDashboard = () => {
                     },
                   }
 
-                  const dayStatus = dayData?.status
-                    ? statusConfig[dayData.status] || statusConfig.ABSENT
+                  const dayStatus = !isPreJoining && dayData?.status
+                    ? statusConfig[dayData.status]
                     : null
 
                   return (
                     <Paper
                       key={i}
                       elevation={0}
+                      onMouseEnter={(e) => {
+                        if (!isPreJoining) {
+                          setActiveDayCell({
+                            dateStr,
+                            dayData,
+                            holiday,
+                            isWeekend,
+                            isPreJoining,
+                            isToday,
+                            anchorEl: e.currentTarget,
+                          })
+                        }
+                      }}
+                      onMouseLeave={() => setActiveDayCell(null)}
+                      onClick={(e) => {
+                        if (!isPreJoining) {
+                          setActiveDayCell({
+                            dateStr,
+                            dayData,
+                            holiday,
+                            isWeekend,
+                            isPreJoining,
+                            isToday,
+                            anchorEl: e.currentTarget,
+                          })
+                        }
+                      }}
                       sx={{
                         p: 2,
                         textAlign: 'center',
                         borderRadius: '14px',
                         position: 'relative',
                         transition: 'all 0.2s ease',
-                        cursor: 'default',
-                        bgcolor: isToday
-                          ? alpha(theme.palette.primary.main, 0.06)
-                          : holiday
-                            ? alpha(theme.palette.secondary.main, 0.04)
-                            : isWeekend
-                              ? alpha(theme.palette.text.secondary, 0.03)
-                              : dayStatus
-                                ? dayStatus.bg
-                                : 'background.paper',
+                        cursor: isPreJoining ? 'default' : 'pointer',
+                        bgcolor: isPreJoining
+                          ? 'background.paper'
+                          : isToday
+                            ? alpha(theme.palette.primary.main, 0.06)
+                            : holiday
+                              ? alpha(theme.palette.secondary.main, 0.04)
+                              : isWeekend
+                                ? alpha(theme.palette.text.secondary, 0.03)
+                                : dayStatus
+                                  ? dayStatus.bg
+                                  : 'background.paper',
                         border: '1.5px solid',
-                        borderColor: isToday
-                          ? theme.palette.primary.main
-                          : holiday
-                            ? alpha(theme.palette.secondary.main, 0.3)
-                            : dayStatus
-                              ? dayStatus.border
-                              : theme.palette.divider,
+                        borderColor: isPreJoining
+                          ? theme.palette.divider
+                          : isToday
+                            ? theme.palette.primary.main
+                            : holiday
+                              ? alpha(theme.palette.secondary.main, 0.3)
+                              : dayStatus
+                                ? dayStatus.border
+                                : theme.palette.divider,
                         '&:hover': {
                           transform: 'translateY(-2px)',
                           boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.08)}`,
@@ -1029,30 +1074,37 @@ const EmployeeDashboard = () => {
                       </Typography>
 
                       <Box sx={{ mt: 1, minHeight: 36 }}>
-                        {holiday ? (
-                          <Tooltip title={holiday.name}>
+                        {isPreJoining ? (
+                          <Typography
+                            variant="caption"
+                            color="text.disabled"
+                          >
+                            —
+                          </Typography>
+                        ) : holiday ? (
+                          <Tooltip title={`${holiday.name}${holiday.type === "RESTRICTED" ? " (Restricted)" : ""}`}>
                             <Box>
                               <CelebrationIcon
                                 sx={{
                                   fontSize: 16,
-                                  color: 'secondary.main',
+                                  color: holiday.type === "RESTRICTED" ? "warning.main" : "secondary.main",
                                   mb: 0.3,
                                 }}
                               />
                               <Typography
                                 variant="caption"
                                 sx={{
-                                  display: 'block',
-                                  color: 'secondary.dark',
+                                  display: "block",
+                                  color: holiday.type === "RESTRICTED" ? "warning.dark" : "secondary.dark",
                                   fontWeight: 600,
-                                  fontSize: '0.65rem',
+                                  fontSize: "0.65rem",
                                   lineHeight: 1.2,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                {holiday.name}
+                                {holiday.name} {holiday.type === "RESTRICTED" ? "(Restricted)" : ""}
                               </Typography>
                             </Box>
                           </Tooltip>
@@ -1127,6 +1179,84 @@ const EmployeeDashboard = () => {
               </Box>
             )}
 
+            {/* Day Detail Tooltip */}
+            <Popper
+              open={Boolean(activeDayCell?.anchorEl)}
+              anchorEl={activeDayCell?.anchorEl}
+              placement="bottom"
+              transition
+              sx={{ zIndex: 1300, pointerEvents: 'none' }}
+              modifiers={[
+                {
+                  name: 'offset',
+                  options: {
+                    offset: [0, 8],
+                  },
+                },
+              ]}
+            >
+              {({ TransitionProps }) => (
+                <Fade {...TransitionProps} timeout={150}>
+                  <Paper
+                    elevation={8}
+                    sx={{
+                      pointerEvents: 'auto',
+                      bgcolor: '#1e293b',
+                      color: '#ffffff',
+                      borderRadius: 2,
+                      p: 2,
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      minWidth: 280,
+                      maxWidth: 360,
+                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                    }}
+                  >
+                    {activeDayCell && (() => {
+                      const sessions = (activeDayCell.isToday && todayAttendance?.sessions?.length)
+                        ? todayAttendance.sessions
+                        : activeDayCell.dayData?.sessions || []
+
+                      const totalMins = (activeDayCell.isToday && currentDisplaySeconds > 0)
+                        ? Math.floor(currentDisplaySeconds / 60)
+                        : (activeDayCell.dayData?.totalMinutes || (activeDayCell.isToday && todayAttendance?.totalMinutes) || 0)
+
+                      const status = (activeDayCell.dayData?.status ||
+                        (activeDayCell.isToday && todayAttendance?.status) ||
+                        (activeDayCell.holiday
+                          ? 'HOLIDAY'
+                          : activeDayCell.isWeekend
+                          ? 'WEEKEND'
+                          : 'UNRECORDED')) as any
+
+                      return (
+                        <DaySessionDetail
+                          date={activeDayCell.dateStr}
+                          status={status}
+                          totalMinutes={totalMins}
+                          sessions={sessions}
+                          checkIn={sessions[0]?.checkIn || undefined}
+                          checkOut={sessions[sessions.length - 1]?.checkOut || undefined}
+                          leaveType={activeDayCell.dayData?.leaveType || undefined}
+                          leaveDuration={activeDayCell.dayData?.leaveDuration || undefined}
+                          holidayName={
+                            activeDayCell.holiday
+                              ? `${activeDayCell.holiday.name}${
+                                  activeDayCell.holiday.type === 'RESTRICTED'
+                                    ? ' (Restricted)'
+                                    : ''
+                                }`
+                              : undefined
+                          }
+                          themeMode="dark"
+                          showEmployeeHeader={false}
+                        />
+                      )
+                    })()}
+                  </Paper>
+                </Fade>
+              )}
+            </Popper>
+
             {/* Legend */}
             <Box
               sx={{
@@ -1196,12 +1326,9 @@ const EmployeeDashboard = () => {
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {balances.filter((b) => b.allocated > 0 || b.carriedForward > 0 || b.used > 0 || b.remaining > 0).map((b) => {
-                  const usedPercent =
-                    b.allocated > 0
-                      ? ((b.allocated - b.remaining) / b.allocated) * 100
-                      : 0
-                  const isLow =
-                    b.allocated > 0 && b.remaining / b.allocated < 0.2
+                  const total = b.remaining + b.used
+                  const usedPercent = total > 0 ? (b.used / total) * 100 : 0
+                  const isLow = b.remaining <= 0 || (total > 0 && b.remaining / total < 0.2)
 
                   return (
                     <Box
@@ -1251,13 +1378,13 @@ const EmployeeDashboard = () => {
                             fontWeight={800}
                             color={isLow ? 'error.main' : 'primary.main'}
                           >
-                            {b.remaining}
+                            {formatLeaveDays(b.remaining)} Available
                           </Typography>
                           <Typography
                             variant="caption"
                             color="text.secondary"
                           >
-                            of {b.allocated} days
+                            Used: {formatLeaveDays(b.used)}
                           </Typography>
                         </Box>
                       </Box>
@@ -1291,16 +1418,16 @@ const EmployeeDashboard = () => {
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          sx={{ fontSize: '0.65rem' }}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          {b.used} used
+                          Used: <strong>{formatLeaveDays(b.used)}</strong>
                         </Typography>
                         <Typography
                           variant="caption"
                           color="text.secondary"
-                          sx={{ fontSize: '0.65rem' }}
+                          sx={{ fontSize: '0.75rem' }}
                         >
-                          {b.remaining} remaining
+                          Available: <strong>{formatLeaveDays(b.remaining)}</strong>
                         </Typography>
                       </Box>
                     </Box>
@@ -1404,13 +1531,24 @@ const EmployeeDashboard = () => {
                         </Typography>
                       </Box>
                       <Box sx={{ flex: 1 }}>
-                        <Typography
-                          variant="body2"
-                          fontWeight={600}
-                          color="text.primary"
-                        >
-                          {h.name}
-                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography
+                            variant="body2"
+                            fontWeight={600}
+                            color="text.primary"
+                          >
+                            {h.name}
+                          </Typography>
+                          {h.type === "RESTRICTED" && (
+                            <Chip
+                              label="Restricted"
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              sx={{ height: 18, fontSize: "0.625rem", fontWeight: 600 }}
+                            />
+                          )}
+                        </Box>
                         <Typography variant="caption" color="text.secondary">
                           {d.format('dddd')} ·{' '}
                           {daysUntil === 0

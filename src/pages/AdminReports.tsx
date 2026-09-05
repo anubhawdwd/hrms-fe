@@ -26,7 +26,13 @@ import {
   useTheme,
   alpha,
   Divider,
+  IconButton,
+  Tooltip,
 } from '@mui/material'
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import dayjs from 'dayjs'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import SummarizeIcon from '@mui/icons-material/Summarize'
 import FileDownloadIcon from '@mui/icons-material/FileDownload'
 import TableViewIcon from '@mui/icons-material/TableView'
@@ -49,9 +55,25 @@ import type {
 import { organizationApi } from '../api/organization.api'
 import type { Department, Team } from '../types/organization.types'
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+
 export const AdminReports: React.FC = () => {
   const theme = useTheme()
-  const currentYear = new Date().getFullYear()
+  const now = dayjs()
+  const currentYear = now.year()
 
   const [activeTab, setActiveTab] = useState<'EMPLOYEE' | 'LEAVE'>('EMPLOYEE')
 
@@ -67,8 +89,73 @@ export const AdminReports: React.FC = () => {
 
   // Leave Filters
   const [selectedYear, setSelectedYear] = useState<number>(currentYear)
-  const [fromDate, setFromDate] = useState<string>('')
-  const [toDate, setToDate] = useState<string>('')
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.month())
+  const [fromDate, setFromDate] = useState<string>(now.startOf('month').format('YYYY-MM-DD'))
+  const [toDate, setToDate] = useState<string>(now.endOf('month').format('YYYY-MM-DD'))
+
+  // Check if current fromDate and toDate exactly match a full calendar month
+  const matchedMonthInfo = React.useMemo(() => {
+    if (!fromDate || !toDate) return null
+    const dFrom = dayjs(fromDate)
+    const dTo = dayjs(toDate)
+    if (!dFrom.isValid() || !dTo.isValid()) return null
+    if (dFrom.year() !== dTo.year() || dFrom.month() !== dTo.month()) return null
+    if (dFrom.date() !== 1) return null
+    if (dTo.date() !== dFrom.daysInMonth()) return null
+    return {
+      year: dFrom.year(),
+      month: dFrom.month(),
+    }
+  }, [fromDate, toDate])
+
+  const isCustomRange = matchedMonthInfo === null
+  const displayMonthIndex = matchedMonthInfo ? matchedMonthInfo.month : selectedMonth
+
+  const handleStepMonth = (direction: -1 | 1) => {
+    let baseYear = selectedYear
+    let baseMonth = selectedMonth
+
+    if (matchedMonthInfo) {
+      baseYear = matchedMonthInfo.year
+      baseMonth = matchedMonthInfo.month
+    }
+
+    let newMonth = baseMonth + direction
+    let newYear = baseYear
+
+    if (newMonth < 0) {
+      newMonth = 11
+      newYear -= 1
+    } else if (newMonth > 11) {
+      newMonth = 0
+      newYear += 1
+    }
+
+    setSelectedYear(newYear)
+    setSelectedMonth(newMonth)
+
+    const targetDate = dayjs().year(newYear).month(newMonth).date(1)
+    setFromDate(targetDate.startOf('month').format('YYYY-MM-DD'))
+    setToDate(targetDate.endOf('month').format('YYYY-MM-DD'))
+  }
+
+  const handleYearChange = (newYear: number) => {
+    setSelectedYear(newYear)
+    const targetDate = dayjs().year(newYear).month(selectedMonth).date(1)
+    setFromDate(targetDate.startOf('month').format('YYYY-MM-DD'))
+    setToDate(targetDate.endOf('month').format('YYYY-MM-DD'))
+  }
+
+  const availableYears = Array.from(
+    new Set([
+      selectedYear,
+      matchedMonthInfo?.year || selectedYear,
+      currentYear + 1,
+      currentYear,
+      currentYear - 1,
+      currentYear - 2,
+    ])
+  ).sort((a, b) => b - a)
 
   // Loading & State
   const [generating, setGenerating] = useState<boolean>(false)
@@ -353,34 +440,124 @@ export const AdminReports: React.FC = () => {
                   label="Year"
                   select
                   value={selectedYear}
-                  onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  sx={{ minWidth: 120 }}
+                  onChange={(e) => handleYearChange(Number(e.target.value))}
+                  sx={{ minWidth: 110 }}
                 >
-                  {[currentYear + 1, currentYear, currentYear - 1, currentYear - 2].map((y) => (
+                  {availableYears.map((y) => (
                     <MenuItem key={y} value={y}>
                       {y}
                     </MenuItem>
                   ))}
                 </TextField>
 
-                <TextField
-                  size="small"
+                {/* Month Stepper Pill Control */}
+                <Box
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    height: 40,
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: isCustomRange ? 'divider' : alpha(theme.palette.primary.main, 0.35),
+                    bgcolor: isCustomRange ? 'background.paper' : alpha(theme.palette.primary.main, 0.04),
+                    p: '2px',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      borderColor: isCustomRange ? 'text.secondary' : theme.palette.primary.main,
+                    },
+                  }}
+                >
+                  <Tooltip title="Previous Month">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleStepMonth(-1)}
+                        aria-label="Previous Month"
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 1.5,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            color: 'primary.main',
+                          },
+                        }}
+                      >
+                        <ChevronLeftIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Box
+                    sx={{
+                      px: 1.5,
+                      minWidth: 95,
+                      textAlign: 'center',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      fontWeight={700}
+                      color={isCustomRange ? 'text.secondary' : 'primary.main'}
+                      sx={{
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.8125rem',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      {isCustomRange ? 'Custom Range' : MONTH_NAMES[displayMonthIndex]}
+                    </Typography>
+                  </Box>
+
+                  <Tooltip title="Next Month">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleStepMonth(1)}
+                        aria-label="Next Month"
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 1.5,
+                          color: 'text.secondary',
+                          '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.1),
+                            color: 'primary.main',
+                          },
+                        }}
+                      >
+                        <ChevronRightIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+
+                <DatePicker
                   label="From Date (Optional)"
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 160 }}
+                  value={fromDate ? dayjs(fromDate) : null}
+                  onChange={(newValue) => setFromDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: { minWidth: 160 },
+                    },
+                  }}
                 />
 
-                <TextField
-                  size="small"
+                <DatePicker
                   label="To Date (Optional)"
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ minWidth: 160 }}
+                  value={toDate ? dayjs(toDate) : null}
+                  minDate={fromDate ? dayjs(fromDate) : undefined}
+                  onChange={(newValue) => setToDate(newValue && newValue.isValid() ? newValue.format('YYYY-MM-DD') : '')}
+                  slotProps={{
+                    textField: {
+                      size: 'small',
+                      sx: { minWidth: 160 },
+                    },
+                  }}
                 />
 
                 <TextField
@@ -674,10 +851,20 @@ export const AdminReports: React.FC = () => {
                     </TableCell>
                   ))}
 
-                  {/* Aggregates */}
-                  <TableCell rowSpan={2} sx={{ minWidth: 110, borderLeft: '1px solid', borderColor: 'divider' }}>
-                    Paid Leaves Total
+                  {/* Total Paid Leaves (Grouped Merged Header) */}
+                  <TableCell
+                    colSpan={2}
+                    sx={{
+                      borderLeft: '1px solid',
+                      borderRight: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'grey.100',
+                    }}
+                  >
+                    Total Paid Leaves
                   </TableCell>
+
+                  {/* Aggregates */}
                   <TableCell rowSpan={2} sx={{ minWidth: 95 }}>
                     LWP Total
                   </TableCell>
@@ -718,7 +905,7 @@ export const AdminReports: React.FC = () => {
                           bgcolor: 'grey.100',
                         }}
                       >
-                        Booked
+                        Balance
                       </TableCell>
                       <TableCell
                         sx={{
@@ -728,10 +915,32 @@ export const AdminReports: React.FC = () => {
                           bgcolor: 'grey.100',
                         }}
                       >
-                        Balance
+                        Used
                       </TableCell>
                     </React.Fragment>
                   ))}
+
+                  {/* Total Paid Leaves Sub-Headers */}
+                  <TableCell
+                    sx={{
+                      minWidth: 80,
+                      borderLeft: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'grey.100',
+                    }}
+                  >
+                    Balance
+                  </TableCell>
+                  <TableCell
+                    sx={{
+                      minWidth: 80,
+                      borderRight: '1px solid',
+                      borderColor: 'divider',
+                      bgcolor: 'grey.100',
+                    }}
+                  >
+                    Used
+                  </TableCell>
                 </TableRow>
               </TableHead>
 
@@ -769,7 +978,8 @@ export const AdminReports: React.FC = () => {
 
                     {/* Dynamic Leave Types */}
                     {leaveReport.leaveTypes.map((lt) => {
-                      const m = row.leaveTypeMetrics[lt.id] || { booked: 0, balance: 0 }
+                      const m = row.leaveTypeMetrics[lt.id] || { used: 0, balance: 0, booked: 0 }
+                      const usedVal = m.used ?? m.booked ?? 0
                       return (
                         <React.Fragment key={lt.id}>
                           <TableCell
@@ -777,29 +987,48 @@ export const AdminReports: React.FC = () => {
                             sx={{
                               borderLeft: '1px solid',
                               borderColor: 'divider',
-                              color: m.booked > 0 ? 'text.primary' : 'text.disabled',
-                            }}
-                          >
-                            {m.booked}
-                          </TableCell>
-                          <TableCell
-                            align="center"
-                            sx={{
-                              borderRight: '1px solid',
-                              borderColor: 'divider',
                               fontWeight: 600,
                               color: m.balance > 0 ? 'primary.main' : 'text.disabled',
                             }}
                           >
                             {m.balance}
                           </TableCell>
+                          <TableCell
+                            align="center"
+                            sx={{
+                              borderRight: '1px solid',
+                              borderColor: 'divider',
+                              color: usedVal > 0 ? 'text.primary' : 'text.disabled',
+                            }}
+                          >
+                            {usedVal}
+                          </TableCell>
                         </React.Fragment>
                       )
                     })}
 
-                    {/* Aggregates */}
-                    <TableCell align="center" sx={{ borderLeft: '1px solid', borderColor: 'divider', fontWeight: 600 }}>
-                      {row.paidLeavesTotal}
+                    {/* Total Paid Leaves */}
+                    <TableCell
+                      align="center"
+                      sx={{
+                        borderLeft: '1px solid',
+                        borderColor: 'divider',
+                        fontWeight: 600,
+                        color: (row.paidLeavesBalance ?? 0) > 0 ? 'primary.main' : 'text.disabled',
+                      }}
+                    >
+                      {row.paidLeavesBalance ?? 0}
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        borderRight: '1px solid',
+                        borderColor: 'divider',
+                        fontWeight: 600,
+                        color: (row.paidLeavesUsed ?? row.paidLeavesTotal ?? 0) > 0 ? 'text.primary' : 'text.disabled',
+                      }}
+                    >
+                      {row.paidLeavesUsed ?? row.paidLeavesTotal ?? 0}
                     </TableCell>
                     <TableCell align="center" sx={{ fontWeight: 600, color: row.lwpTotal > 0 ? 'warning.main' : 'text.disabled' }}>
                       {row.lwpTotal}
@@ -820,7 +1049,7 @@ export const AdminReports: React.FC = () => {
             No Leave Report Generated Yet
           </Typography>
           <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>
-            Choose your year/filters above and click "Generate Report" to view dynamic leave balances and booked usage.
+            Choose your year/filters above and click "Generate Report" to view dynamic leave balances and used leaves.
           </Typography>
         </Paper>
       )}
@@ -863,7 +1092,7 @@ export const AdminReports: React.FC = () => {
             <strong>{pendingWarning?.pendingTotalDays}</strong> days/hours.
           </Typography>
           <Alert severity="info" sx={{ borderRadius: 2 }}>
-            Pending leave will <strong>not</strong> be counted as Booked/Used in this report unless it is approved.
+            Pending leave will <strong>not</strong> be counted as Used in this report unless it is approved.
           </Alert>
         </DialogContent>
 

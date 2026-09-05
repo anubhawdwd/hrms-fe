@@ -1,4 +1,5 @@
 // src/components/AdminEmployeeLeaveProfileModal.tsx
+import { formatLeaveDays } from '../utils/format.utils'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Dialog,
@@ -422,9 +423,9 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
             ) : (
               <Grid container spacing={2}>
                 {visibleBalances.map((bal) => {
-                  const totalAvail = bal.allocated + bal.carriedForward
-                  const usedPct = totalAvail > 0 ? Math.min(100, (bal.used / totalAvail) * 100) : 0
-                  const isLow = totalAvail > 0 && bal.remaining / totalAvail < 0.2
+                  const total = bal.remaining + bal.used
+                  const usedPct = total > 0 ? Math.min(100, (bal.used / total) * 100) : 0
+                  const isLow = bal.remaining <= 0 || (total > 0 && bal.remaining / total < 0.2)
 
                   return (
                     <Grid size={{ xs: 12, sm: 6, md: 4 }} key={bal.id}>
@@ -474,10 +475,10 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
                             fontWeight={800}
                             color={bal.remaining <= 0 ? 'error.main' : 'primary.main'}
                           >
-                            {bal.remaining}
+                            {formatLeaveDays(bal.remaining)}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            / {totalAvail} days remaining
+                            days available
                           </Typography>
                         </Box>
 
@@ -492,13 +493,12 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
                           sx={{
                             display: 'flex',
                             justifyContent: 'space-between',
-                            fontSize: '0.6875rem',
+                            fontSize: '0.75rem',
                             color: 'text.secondary',
                           }}
                         >
-                          <span>Allocated: {bal.allocated}</span>
-                          {bal.carriedForward > 0 && <span>Carry: +{bal.carriedForward}</span>}
-                          <span>Used: {bal.used}</span>
+                          <span>Available: <strong>{formatLeaveDays(bal.remaining)}</strong></span>
+                          <span>Used: <strong>{formatLeaveDays(bal.used)}</strong></span>
                         </Box>
                       </Box>
                     </Grid>
@@ -627,12 +627,12 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
 
                   const durationLabel =
                     req.durationType === 'FULL_DAY'
-                      ? req.durationValue + ' Day' + (req.durationValue > 1 ? 's' : '')
+                      ? formatLeaveDays(req.durationValue) + ' Day' + (req.durationValue > 1 ? 's' : '')
                       : req.durationType === 'HALF_DAY'
                       ? 'Half Day'
                       : req.durationType === 'QUARTER_DAY'
                       ? 'Quarter Day'
-                      : req.durationValue + 'h (Hourly)'
+                      : formatLeaveDays(req.durationValue) + 'h (Hourly)'
 
                   return (
                     <Box
@@ -919,7 +919,7 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
               }}
             >
               <Typography variant="body2" fontWeight={600}>
-                {requestToDelete.leaveType?.name} ({requestToDelete.durationValue} day(s))
+                {requestToDelete.leaveType?.name} ({formatLeaveDays(requestToDelete.durationValue)} day(s))
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {dayjs(requestToDelete.fromDate).format('DD MMM YYYY')}
