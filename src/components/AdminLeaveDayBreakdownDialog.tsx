@@ -21,6 +21,7 @@ import {
   IconButton,
   DialogContentText,
   Tooltip,
+  Checkbox,
   alpha,
   useTheme,
 } from '@mui/material'
@@ -53,11 +54,16 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
 }) => {
   const theme = useTheme()
   const [draftDaysStatus, setDraftDaysStatus] = useState<Record<string, LeaveRequestStatus>>({})
+  const [selectedDayIds, setSelectedDayIds] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
 
-  // Delete Request Confirmation State
+  // Delete Entire Request Confirmation State
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Delete Selected Days Confirmation State
+  const [deleteSelectedDaysConfirmOpen, setDeleteSelectedDaysConfirmOpen] = useState(false)
+  const [isDeletingDays, setIsDeletingDays] = useState(false)
 
   // Initialize/reset draft state whenever dialog opens or request changes
   useEffect(() => {
@@ -69,8 +75,11 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
         })
       }
       setDraftDaysStatus(initial)
+      setSelectedDayIds([])
       setDeleteConfirmOpen(false)
       setIsDeleting(false)
+      setDeleteSelectedDaysConfirmOpen(false)
+      setIsDeletingDays(false)
     }
   }, [request, open])
 
@@ -98,6 +107,21 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
   }, [days, draftDaysStatus])
 
   if (!request) return null
+
+  /* ---------------- Selection Handlers ---------------- */
+  const handleToggleSelectDay = (dayId: string) => {
+    setSelectedDayIds((prev) =>
+      prev.includes(dayId) ? prev.filter((id) => id !== dayId) : [...prev, dayId]
+    )
+  }
+
+  const handleToggleSelectAll = () => {
+    if (selectedDayIds.length === days.length) {
+      setSelectedDayIds([])
+    } else {
+      setSelectedDayIds(days.map((d) => d.id))
+    }
+  }
 
   /* ---------------- Day Actions (Local Draft) ---------------- */
   const handleSetDayDraft = (dayId: string, status: LeaveRequestStatus) => {
@@ -195,6 +219,32 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
     }
   }
 
+  /* ---------------- Delete Selected Days ---------------- */
+  const handleConfirmDeleteSelectedDays = async () => {
+    if (selectedDayIds.length === 0) return
+    setIsDeletingDays(true)
+    try {
+      const res: any = await leaveApi.deleteDays(request.id, selectedDayIds)
+      if (res?.revertedDays && res.revertedDays > 0) {
+        toast.success(`${selectedDayIds.length} day(s) deleted & ${res.revertedDays} day(s) restored to balance`)
+      } else {
+        toast.success(`${selectedDayIds.length} day(s) deleted successfully`)
+      }
+      setDeleteSelectedDaysConfirmOpen(false)
+      if (res?.deletedRequestId || res?.remainingDaysCount === 0) {
+        onSuccess?.(null)
+        onClose()
+      } else {
+        onSuccess?.(res)
+        onClose()
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete selected days')
+    } finally {
+      setIsDeletingDays(false)
+    }
+  }
+
   const handleCancel = () => {
     const reset: Record<string, LeaveRequestStatus> = {}
     if (request.days) {
@@ -203,6 +253,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
       })
     }
     setDraftDaysStatus(reset)
+    setSelectedDayIds([])
     onClose()
   }
 
@@ -219,7 +270,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
     <>
       <Dialog
         open={open}
-        onClose={isSaving || isDeleting ? undefined : handleCancel}
+        onClose={isSaving || isDeleting || isDeletingDays ? undefined : handleCancel}
         maxWidth="md"
         fullWidth
         PaperProps={{ sx: { borderRadius: '16px' } }}
@@ -238,13 +289,13 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {employeeName ? `${employeeName} · ` : ''}
-                {request.leaveType.name} · {durationStr} &middot;{' '}
+                {request.leaveType?.name} · {durationStr} &middot;{' '}
                 {dayjs(request.fromDate).format('DD MMM YYYY')}
                 {request.fromDate.slice(0, 10) !== request.toDate.slice(0, 10) &&
                   ` - ${dayjs(request.toDate).format('DD MMM YYYY')}`}
               </Typography>
             </Box>
-            <IconButton onClick={handleCancel} disabled={isSaving || isDeleting} size="small">
+            <IconButton onClick={handleCancel} disabled={isSaving || isDeleting || isDeletingDays} size="small">
               <CloseIcon />
             </IconButton>
           </Box>
@@ -271,14 +322,29 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
             </Paper>
           )}
 
-          {/* Day by Day Table */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <Typography variant="subtitle2" fontWeight={700}>
-              Individual Day Breakdown & Day-Level Actions
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Review and selectively approve/reject each day before saving
-            </Typography>
+          {/* Day by Day Table Header Controls */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={700}>
+                Individual Day Breakdown & Actions
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Select specific rows to delete, or toggle individual day approval status
+              </Typography>
+            </Box>
+            {selectedDayIds.length > 0 && (
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                startIcon={<DeleteOutlineIcon />}
+                onClick={() => setDeleteSelectedDaysConfirmOpen(true)}
+                disabled={isSaving || isDeleting || isDeletingDays}
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+              >
+                Delete Selected Days ({selectedDayIds.length})
+              </Button>
+            )}
           </Box>
 
           {days.length === 0 ? (
@@ -288,7 +354,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
             >
               <Typography variant="body2" color="text.secondary">
                 Single-day leave on {dayjs(request.fromDate).format('dddd, DD MMM YYYY')} (
-                {request.durationType === 'FULL_DAY' ? 'Full Day' : request.durationType} · {request.leaveType.name})
+                {request.durationType === 'FULL_DAY' ? 'Full Day' : request.durationType} · {request.leaveType?.name})
               </Typography>
             </Paper>
           ) : (
@@ -300,6 +366,17 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               <Table size="small">
                 <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
                   <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        indeterminate={
+                          selectedDayIds.length > 0 && selectedDayIds.length < days.length
+                        }
+                        checked={days.length > 0 && selectedDayIds.length === days.length}
+                        onChange={handleToggleSelectAll}
+                        disabled={isSaving || isDeleting || isDeletingDays}
+                      />
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Date + Day</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Schedule · Leave Type</TableCell>
                     <TableCell sx={{ fontWeight: 700 }} align="center">
@@ -315,6 +392,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                     const currentDraftStatus = draftDaysStatus[day.id] ?? day.status
                     const isApproved = currentDraftStatus === 'APPROVED'
                     const isRejected = currentDraftStatus === 'REJECTED'
+                    const isSelected = selectedDayIds.includes(day.id)
 
                     const dayObj = dayjs(day.date)
                     const dayOfWeek = dayObj.day() // 0 = Sunday, 6 = Saturday
@@ -334,48 +412,65 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                       <TableRow
                         key={day.id}
                         hover
+                        selected={isSelected}
                         sx={{
-                          bgcolor: isSandwich
-                            ? alpha(theme.palette.warning.main, 0.05)
-                            : isWeekend
-                            ? alpha(theme.palette.grey[500], 0.04)
-                            : 'inherit',
+                          bgcolor: isSelected
+                            ? alpha(theme.palette.error.main, 0.04)
+                            : isSandwich
+                            ? alpha(theme.palette.warning.main, 0.03)
+                            : undefined,
                         }}
                       >
-                        <TableCell sx={{ fontWeight: 600 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {isWeekend ? (
-                              <WeekendIcon
-                                sx={{
-                                  fontSize: 16,
-                                  color: isSandwich ? 'warning.main' : 'text.secondary',
-                                }}
-                              />
-                            ) : (
-                              <EventNoteIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                            )}
-                            <span>{dayObj.format('dddd, DD MMM YYYY')}</span>
-                          </Box>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            size="small"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectDay(day.id)}
+                            disabled={isSaving || isDeleting || isDeletingDays}
+                          />
                         </TableCell>
                         <TableCell>
-                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {durationLabel} · {request.leaveType.name}
-                            </Typography>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {isWeekend ? (
+                              <WeekendIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                            ) : (
+                              <EventNoteIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+                            )}
+                            <Box>
+                              <Typography variant="body2" fontWeight={600}>
+                                {dayObj.format('dddd, DD MMM YYYY')}
+                              </Typography>
+                              {isWeekend && (
+                                <Typography variant="caption" color="text.secondary">
+                                  Weekend
+                                </Typography>
+                              )}
+                            </Box>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Typography variant="body2">{durationLabel}</Typography>
                             {isSandwich && (
                               <Chip
-                                label="SANDWICH LEAVE"
+                                label="Sandwich"
                                 size="small"
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.6875rem',
-                                  fontWeight: 800,
-                                  bgcolor: alpha(theme.palette.warning.main, 0.15),
-                                  color: theme.palette.warning.dark,
-                                  border: '1px solid',
-                                  borderColor: alpha(theme.palette.warning.main, 0.3),
-                                }}
+                                color="warning"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
                               />
+                            )}
+                            {day.deductDays === 0 ? (
+                              <Chip
+                                label="Non-Deductible"
+                                size="small"
+                                variant="outlined"
+                                sx={{ height: 20, fontSize: '0.65rem', color: 'text.secondary' }}
+                              />
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                ({day.deductDays} day deduct)
+                              </Typography>
                             )}
                           </Stack>
                         </TableCell>
@@ -404,7 +499,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                               size="small"
                               variant={isApproved ? 'contained' : 'outlined'}
                               color="success"
-                              disabled={isSaving || isDeleting}
+                              disabled={isSaving || isDeleting || isDeletingDays}
                               onClick={() => handleSetDayDraft(day.id, 'APPROVED')}
                               startIcon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
                               sx={{
@@ -422,7 +517,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                               size="small"
                               variant={isRejected ? 'contained' : 'outlined'}
                               color="error"
-                              disabled={isSaving || isDeleting}
+                              disabled={isSaving || isDeleting || isDeletingDays}
                               onClick={() => handleSetDayDraft(day.id, 'REJECTED')}
                               startIcon={<CancelIcon sx={{ fontSize: 14 }} />}
                               sx={{
@@ -455,7 +550,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
                 variant="outlined"
                 color="error"
                 size="small"
-                disabled={isSaving || isDeleting}
+                disabled={isSaving || isDeleting || isDeletingDays}
                 onClick={() => setDeleteConfirmOpen(true)}
                 startIcon={<DeleteOutlineIcon fontSize="small" />}
                 sx={{ fontWeight: 600, borderRadius: '8px', textTransform: 'none' }}
@@ -468,7 +563,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               variant="outlined"
               color="error"
               size="small"
-              disabled={isSaving || isDeleting || pendingCount === 0}
+              disabled={isSaving || isDeleting || isDeletingDays || pendingCount === 0}
               onClick={handleRejectRemaining}
               startIcon={<CancelIcon fontSize="small" />}
               sx={{ fontWeight: 600, borderRadius: '8px', textTransform: 'none' }}
@@ -479,7 +574,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               variant="outlined"
               color="success"
               size="small"
-              disabled={isSaving || isDeleting || pendingCount === 0}
+              disabled={isSaving || isDeleting || isDeletingDays || pendingCount === 0}
               onClick={handleApproveRemaining}
               startIcon={<CheckCircleIcon fontSize="small" />}
               sx={{ fontWeight: 600, borderRadius: '8px', textTransform: 'none' }}
@@ -495,7 +590,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               variant="outlined"
               color="inherit"
               size="small"
-              disabled={isSaving || isDeleting}
+              disabled={isSaving || isDeleting || isDeletingDays}
               sx={{ fontWeight: 600, borderRadius: '8px', textTransform: 'none' }}
             >
               Cancel
@@ -504,7 +599,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
               variant="contained"
               color="primary"
               size="small"
-              disabled={!hasUnsavedChanges || isSaving || isDeleting}
+              disabled={!hasUnsavedChanges || isSaving || isDeleting || isDeletingDays}
               onClick={handleSaveChanges}
               startIcon={
                 isSaving ? (
@@ -521,7 +616,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Entire Request Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
         onClose={() => !isDeleting && setDeleteConfirmOpen(false)}
@@ -580,6 +675,45 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
             sx={{ borderRadius: '8px' }}
           >
             {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Selected Days Confirmation Dialog */}
+      <Dialog
+        open={deleteSelectedDaysConfirmOpen}
+        onClose={() => !isDeletingDays && setDeleteSelectedDaysConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Selected Days?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to permanently delete <strong>{selectedDayIds.length}</strong> selected day(s) from this leave request?
+            {request.leaveType?.isPaid && (
+              <> If any of these days were already approved, their deducted days will be <strong>restored to the employee's balance</strong>.</>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button
+            onClick={() => setDeleteSelectedDaysConfirmOpen(false)}
+            disabled={isDeletingDays}
+            variant="outlined"
+            sx={{ borderRadius: '8px' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDeleteSelectedDays}
+            disabled={isDeletingDays}
+            variant="contained"
+            color="error"
+            startIcon={isDeletingDays ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+            sx={{ borderRadius: '8px' }}
+          >
+            {isDeletingDays ? 'Deleting Days...' : 'Confirm Delete'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -203,6 +203,14 @@ export const leaveApi = {
     return data
   },
 
+  deleteDays: async (requestId: string, dayIds: string[]): Promise<LeaveRequest | { deletedRequestId: string; remainingDaysCount: number }> => {
+    const { data } = await apiClient.delete<LeaveRequest | { deletedRequestId: string; remainingDaysCount: number }>(
+      `/api/leave/requests/${requestId}/days`,
+      { data: { dayIds } }
+    )
+    return data
+  },
+
   deleteRequest: async (requestId: string): Promise<{ success: boolean; message: string; revertedDays?: number }> => {
     const { data } = await apiClient.delete<{ success: boolean; message: string; revertedDays?: number }>(
       `/api/leave/requests/${requestId}`
