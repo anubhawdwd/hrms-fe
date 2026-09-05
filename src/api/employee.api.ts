@@ -1,23 +1,34 @@
 // src/api/employee.api.ts
-import { apiClient } from './client'
+import { apiClient } from "./client"
 import type {
   CreateEmployeePayload,
   EmployeeDetail,
   EmployeeListItem,
+  OnboardEmployeePayload,
   UpdateEmployeeAdminPayload,
-} from '../types/employee.types'
+} from "../types/employee.types"
 
 export const employeeApi = {
   getMe: async (): Promise<EmployeeDetail> => {
     const { data } = await apiClient.get<EmployeeDetail>(
-      '/api/employees/me'
+      "/api/employees/me"
     )
     return data
   },
 
   getById: async (id: string): Promise<EmployeeDetail> => {
     const { data } = await apiClient.get<EmployeeDetail>(
-      '/api/employees/' + id
+      "/api/employees/" + id
+    )
+    return data
+  },
+
+  onboard: async (
+    payload: OnboardEmployeePayload
+  ): Promise<EmployeeDetail & { temporaryPassword?: string }> => {
+    const { data } = await apiClient.post<EmployeeDetail & { temporaryPassword?: string }>(
+      "/api/employees/onboard",
+      payload
     )
     return data
   },
@@ -26,7 +37,7 @@ export const employeeApi = {
     payload: CreateEmployeePayload
   ): Promise<EmployeeListItem> => {
     const { data } = await apiClient.post<EmployeeListItem>(
-      '/api/employees/',
+      "/api/employees/",
       payload
     )
     return data
@@ -34,7 +45,7 @@ export const employeeApi = {
 
   list: async (): Promise<EmployeeListItem[]> => {
     const { data } = await apiClient.get<EmployeeListItem[]>(
-      '/api/employees/'
+      "/api/employees/"
     )
     return data
   },
@@ -43,8 +54,8 @@ export const employeeApi = {
     employeeId: string,
     payload: UpdateEmployeeAdminPayload
   ): Promise<EmployeeDetail> => {
-    const { data } = await apiClient.put<EmployeeDetail>(
-      '/api/employees/' + employeeId + '/admin',
+    const { data } = await apiClient.patch<EmployeeDetail>(
+      "/api/employees/" + employeeId + "/admin",
       payload
     )
     return data
@@ -55,7 +66,7 @@ export const employeeApi = {
     managerId?: string | null
   ): Promise<EmployeeDetail> => {
     const { data } = await apiClient.patch<EmployeeDetail>(
-      '/api/employees/' + employeeId + '/manager',
+      "/api/employees/" + employeeId + "/manager",
       { managerId: managerId ?? null }
     )
     return data
@@ -66,7 +77,7 @@ export const employeeApi = {
     payload?: { effectiveDate?: string; reason?: string }
   ): Promise<{ message: string }> => {
     const { data } = await apiClient.delete<{ message: string }>(
-      '/api/employees/' + employeeId,
+      "/api/employees/" + employeeId,
       { data: payload }
     )
     return data
@@ -77,7 +88,7 @@ export const employeeApi = {
     payload?: { effectiveDate?: string; reason?: string }
   ): Promise<{ message: string }> => {
     const { data } = await apiClient.post<{ message: string }>(
-      '/api/employees/' + employeeId + '/offboard',
+      "/api/employees/" + employeeId + "/offboard",
       payload
     )
     return data
@@ -87,7 +98,7 @@ export const employeeApi = {
     employeeId: string
   ): Promise<{ message: string }> => {
     const { data } = await apiClient.post<{ message: string }>(
-      '/api/employees/' + employeeId + '/reactivate'
+      "/api/employees/" + employeeId + "/reactivate"
     )
     return data
   },

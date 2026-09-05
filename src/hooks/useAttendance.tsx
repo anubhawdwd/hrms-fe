@@ -113,28 +113,29 @@ export const useWeeklyAttendance = (weekOffset: number = 0) => {
   const [days, setDays] = useState<AttendanceDay[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true)
-      try {
-        const start = dayjs()
-          .startOf('week')
-          .add(weekOffset * 7, 'day')
-        const end = start.add(6, 'day')
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const start = dayjs()
+        .startOf('week')
+        .add(weekOffset * 7, 'day')
+      const end = start.add(6, 'day')
 
-        const data = await attendanceApi.getRange(
-          start.format('YYYY-MM-DD'),
-          end.format('YYYY-MM-DD')
-        )
-        setDays(data)
-      } catch {
-        setDays([])
-      } finally {
-        setLoading(false)
-      }
+      const data = await attendanceApi.getRange(
+        start.format('YYYY-MM-DD'),
+        end.format('YYYY-MM-DD')
+      )
+      setDays(data)
+    } catch {
+      setDays([])
+    } finally {
+      setLoading(false)
     }
-    load()
   }, [weekOffset])
 
-  return { days, loading }
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return { days, loading, load, reload: load }
 }

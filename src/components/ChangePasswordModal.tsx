@@ -1,5 +1,5 @@
 // src/components/ChangePasswordModal.tsx
-import { useState } from 'react'
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogTitle,
@@ -11,29 +11,44 @@ import {
   Box,
   Alert,
   CircularProgress,
-} from '@mui/material'
-import LockResetIcon from '@mui/icons-material/LockReset'
-import LogoutIcon from '@mui/icons-material/Logout'
-import { useDispatch } from 'react-redux'
-import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
+} from "@mui/material"
+import LockResetIcon from "@mui/icons-material/LockReset"
+import LogoutIcon from "@mui/icons-material/Logout"
+import { useDispatch } from "react-redux"
+import { useNavigate } from "react-router-dom"
+import toast from "react-hot-toast"
 
-import { authApi } from '../api/auth.api'
-import { useUser } from '../hooks/useAuth'
-import { setUser, clearAuth } from '../store/auth.slice'
+import { authApi } from "../api/auth.api"
+import { useUser } from "../hooks/useAuth"
+import { setUser, clearAuth } from "../store/auth.slice"
 
-const ChangePasswordModal = () => {
+interface Props {
+  open?: boolean
+  onClose?: () => void
+}
+
+const ChangePasswordModal = ({ open = false, onClose }: Props) => {
   const user = useUser()
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isOpen = Boolean(user?.mustChangePassword)
+  const isMandatory = Boolean(user?.mustChangePassword)
+  const isOpen = isMandatory || open
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+      setError(null)
+    }
+  }, [isOpen])
 
   const handleLogout = async () => {
     try {
@@ -42,7 +57,12 @@ const ChangePasswordModal = () => {
       // ignore
     }
     dispatch(clearAuth())
-    navigate('/', { replace: true })
+    navigate("/", { replace: true })
+  }
+
+  const handleClose = () => {
+    if (isMandatory) return
+    if (onClose) onClose()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,36 +70,39 @@ const ChangePasswordModal = () => {
     setError(null)
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required')
+      setError("All fields are required")
       return
     }
 
     if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long')
+      setError("New password must be at least 6 characters long")
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match')
+      setError("New passwords do not match")
       return
     }
 
     if (newPassword === currentPassword) {
-      setError('New password must be different from current password')
+      setError("New password must be different from current password")
       return
     }
 
     setLoading(true)
     try {
       await authApi.changePassword({ currentPassword, newPassword })
-      toast.success('Password changed successfully!')
-      
-      // Update store with mustChangePassword = false
+      toast.success("Password changed successfully!")
+
       if (user) {
         dispatch(setUser({ ...user, mustChangePassword: false }))
       }
+
+      if (onClose) {
+        onClose()
+      }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to change password'
+      const msg = err?.response?.data?.message || "Failed to change password"
       setError(msg)
       toast.error(msg)
     } finally {
@@ -92,7 +115,8 @@ const ChangePasswordModal = () => {
   return (
     <Dialog
       open={isOpen}
-      disableEscapeKeyDown
+      onClose={handleClose}
+      disableEscapeKeyDown={isMandatory}
       maxWidth="xs"
       fullWidth
       PaperProps={{
@@ -104,22 +128,26 @@ const ChangePasswordModal = () => {
       }}
     >
       <Box component="form" onSubmit={handleSubmit}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 1, pb: 1 }}>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1.5, px: 1, pb: 1 }}>
           <LockResetIcon color="primary" sx={{ fontSize: 32 }} />
           <Box>
             <Typography variant="h6" fontWeight={700}>
-              Set New Password
+              {isMandatory ? "Set New Password" : "Change Password"}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              First-time login security requirement
+              {isMandatory
+                ? "First-time login security requirement"
+                : "Update your account password"}
             </Typography>
           </Box>
         </DialogTitle>
 
         <DialogContent sx={{ px: 1, py: 2 }}>
-          <Alert severity="warning" sx={{ mb: 2.5 }}>
-            You are using a temporary password. Please set a new password to continue using HRMS.
-          </Alert>
+          {isMandatory ? (
+            <Alert severity="warning" sx={{ mb: 2.5 }}>
+              You are using a temporary password. Please set a new password to continue using HRMS.
+            </Alert>
+          ) : null}
 
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -128,7 +156,7 @@ const ChangePasswordModal = () => {
           )}
 
           <TextField
-            label="Current (Temporary) Password"
+            label="Current Password"
             type="password"
             fullWidth
             required
@@ -161,17 +189,29 @@ const ChangePasswordModal = () => {
           />
         </DialogContent>
 
-        <DialogActions sx={{ px: 1, pt: 2, justifyContent: 'space-between' }}>
-          <Button
-            type="button"
-            color="inherit"
-            startIcon={<LogoutIcon />}
-            onClick={handleLogout}
-            disabled={loading}
-            size="small"
-          >
-            Log Out
-          </Button>
+        <DialogActions sx={{ px: 1, pt: 2, justifyContent: "space-between" }}>
+          {isMandatory ? (
+            <Button
+              type="button"
+              color="inherit"
+              startIcon={<LogoutIcon />}
+              onClick={handleLogout}
+              disabled={loading}
+              size="small"
+            >
+              Log Out
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              color="inherit"
+              onClick={handleClose}
+              disabled={loading}
+              size="small"
+            >
+              Cancel
+            </Button>
+          )}
 
           <Button
             type="submit"
@@ -179,7 +219,7 @@ const ChangePasswordModal = () => {
             disabled={loading}
             startIcon={loading ? <CircularProgress size={18} /> : null}
           >
-            {loading ? 'Saving...' : 'Update Password'}
+            {loading ? "Saving..." : "Update Password"}
           </Button>
         </DialogActions>
       </Box>

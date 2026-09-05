@@ -1,25 +1,27 @@
 // src/app/routes.tsx
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate } from "react-router-dom"
 
-import AuthGate from '../pages/AuthGate'
-import AppShell from '../components/AppShell'
-import RequirePermission from '../guards/RequirePermission'
+import AuthGate from "../pages/AuthGate"
+import AppShell from "../components/AppShell"
+import RequirePermission from "../guards/RequirePermission"
 
-import EmployeeDashboard from '../pages/EmployeeDashboard'
-import AdminDashboard from '../pages/AdminDashboard'
-import AdminEmployeeList from '../pages/AdminEmployeeList'
-import AdminEmployeeProfile from '../pages/AdminEmployeeProfile'
-import AdminUserList from '../pages/AdminUserList'
-import AdminCreateEmployee from '../pages/AdminCreateEmployee'
-import AdminLeaveDashboard from '../pages/AdminLeaveDashboard'
-import AdminHolidays from '../pages/AdminHolidays'
-import AdminAttendance from '../pages/AdminAttendance'
-import AdminWorkplaceSettings from '../pages/AdminWorkplaceSettings'
-import AdminOrganization from '../pages/AdminOrganization'
-import AdminAttendanceDashboard from '../pages/AdminAttendanceDashboard'
-import SuperAdminDashboard from '../pages/SuperAdminDashboard'
-import NotFound from '../pages/NotFound'
-import AdminReports from '../pages/AdminReports'
+import EmployeeDashboard from "../pages/EmployeeDashboard"
+import AdminDashboard from "../pages/AdminDashboard"
+import AdminEmployeeList from "../pages/AdminEmployeeList"
+import AdminEmployeeProfile from "../pages/AdminEmployeeProfile"
+import AdminUserList from "../pages/AdminUserList"
+import AdminCreateEmployee from "../pages/AdminCreateEmployee"
+import AdminLeaveDashboard from "../pages/AdminLeaveDashboard"
+import AdminHolidays from "../pages/AdminHolidays"
+import AdminAttendance from "../pages/AdminAttendance"
+import AdminWorkplaceSettings from "../pages/AdminWorkplaceSettings"
+import AdminOrganization from "../pages/AdminOrganization"
+import AdminAttendanceDashboard from "../pages/AdminAttendanceDashboard"
+import SuperAdminDashboard from "../pages/SuperAdminDashboard"
+import SuperAdminErrorLogs from "../pages/SuperAdminErrorLogs"
+import SuperAdminAccounts from "../pages/SuperAdminAccounts"
+import NotFound from "../pages/NotFound"
+import AdminReports from "../pages/AdminReports"
 
 const AppRoutes = () => (
   <Routes>
@@ -55,8 +57,8 @@ const AppRoutes = () => (
       <Route path="leave-dashboard" element={<AdminLeaveDashboard />} />
       <Route path="leave-approvals" element={<Navigate to="/admin/leave-dashboard" replace />} />
       <Route path="leave-approval" element={<Navigate to="/admin/leave-dashboard" replace />} />
-                <Route path="reports" element={<AdminReports />} />
-<Route path="holidays" element={<AdminHolidays />} />
+      <Route path="reports" element={<AdminReports />} />
+      <Route path="holidays" element={<AdminHolidays />} />
       <Route path="attendance" element={<AdminAttendance />} />
       <Route path="attendance-dashboard" element={<AdminAttendanceDashboard />} />
       <Route path="organization" element={<AdminOrganization />} />
@@ -74,6 +76,8 @@ const AppRoutes = () => (
       }
     >
       <Route index element={<SuperAdminDashboard />} />
+      <Route path="admins" element={<SuperAdminAccounts />} />
+      <Route path="error-logs" element={<SuperAdminErrorLogs />} />
     </Route>
 
     <Route path="*" element={<NotFound />} />

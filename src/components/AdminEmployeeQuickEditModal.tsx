@@ -31,6 +31,7 @@ import {
   Paper,
   alpha,
   useTheme,
+  MenuItem,
 } from '@mui/material'
 import PersonIcon from '@mui/icons-material/Person'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
@@ -45,6 +46,7 @@ import dayjs from 'dayjs'
 import toast from 'react-hot-toast'
 
 import { employeeApi } from '../api/employee.api'
+import { userApi } from '../api/user.api'
 import { organizationApi } from '../api/organization.api'
 import { attendanceApi } from '../api/attendance.api'
 import { leaveApi } from '../api/leave.api'
@@ -63,7 +65,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOff'
 import RestoreIcon from '@mui/icons-material/Restore'
 import LockResetIcon from '@mui/icons-material/LockReset'
 import { useUser } from '../hooks/useAuth'
-import type { EmployeeListItem } from '../types/employee.types'
+import type { EmployeeListItem, Gender } from '../types/employee.types'
 import type { Department, Team, Designation } from '../types/organization.types'
 import type { AttendanceDay } from '../types/attendance.types'
 import type { LeaveRequest, LeaveType, LeaveBalance } from '../types/leave.types'
@@ -129,12 +131,22 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
 
   // ─── Profile Tab Form State ───
   const [firstName, setFirstName] = useState<string>('')
+  const [middleName, setMiddleName] = useState<string>('')
   const [lastName, setLastName] = useState<string>('')
   const [displayName, setDisplayName] = useState<string>('')
+  const [personalEmail, setPersonalEmail] = useState<string>('')
+  const [phone, setPhone] = useState<string>('')
+  const [gender, setGender] = useState<Gender | ''>('')
+  const [dateOfBirth, setDateOfBirth] = useState<string>('')
+  const [joiningDate, setJoiningDate] = useState<string>('')
   const [departmentId, setDepartmentId] = useState<string>('')
   const [teamId, setTeamId] = useState<string>('')
   const [designationId, setDesignationId] = useState<string>('')
   const [managerId, setManagerId] = useState<string>('')
+  const [secondaryManagerId, setSecondaryManagerId] = useState<string>('')
+  const [companyEmail, setCompanyEmail] = useState<string>('')
+  const [emailError, setEmailError] = useState<string>('')
+  const [emailConfirmOpen, setEmailConfirmOpen] = useState<boolean>(false)
   const [isActive, setIsActive] = useState<boolean>(true)
   const [isProbation, setIsProbation] = useState<boolean>(false)
   const [profileSaving, setProfileSaving] = useState<boolean>(false)
@@ -189,13 +201,22 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
   // ─── Initialize Profile Form on Employee Change ───
   useEffect(() => {
     if (employee) {
+      setCompanyEmail(employee.user?.email || '')
+      setEmailError('')
       setFirstName(employee.firstName || '')
+      setMiddleName(employee.middleName || '')
       setLastName(employee.lastName || '')
       setDisplayName(employee.displayName || '')
+      setPersonalEmail(employee.user?.personalEmail || '')
+      setPhone(employee.phone || '')
+      setGender(employee.gender || '')
+      setDateOfBirth(employee.dateOfBirth ? dayjs(employee.dateOfBirth).format('YYYY-MM-DD') : '')
+      setJoiningDate(employee.joiningDate ? dayjs(employee.joiningDate).format('YYYY-MM-DD') : '')
       setDepartmentId(employee.departmentId || employee.department?.id || '')
       setTeamId(employee.teamId || employee.team?.id || '')
       setDesignationId(employee.designationId || '')
       setManagerId(employee.managerId || '')
+      setSecondaryManagerId(employee.secondaryManagerId || '')
       setIsActive(employee.isActive ?? true)
       setIsProbation(employee.isProbation ?? false)
     }
@@ -286,11 +307,17 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     return teams.find((t) => t.id === teamId) || null
   }, [teams, teamId])
 
-  // Eligible Managers (exclude current employee)
+  // Eligible Primary Managers (exclude current employee)
   const eligibleManagers = useMemo(() => {
     if (!employee) return []
     return allEmployees.filter((e) => e.id !== employee.id && (e.isActive || e.id === managerId))
   }, [allEmployees, employee, managerId])
+
+  // Eligible Secondary Managers (exclude current employee)
+  const eligibleSecondaryManagers = useMemo(() => {
+    if (!employee) return []
+    return allEmployees.filter((e) => e.id !== employee.id && (e.isActive || e.id === secondaryManagerId))
+  }, [allEmployees, employee, secondaryManagerId])
 
   // Typo-tolerant generic filter options generator
   const createTypoFilterOptions = useCallback(<T extends { name: string }>() => {
@@ -318,47 +345,103 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
 
   if (!employee) return null
 
+  const isLocalAuth = !employee?.user?.authProvider || employee.user?.authProvider === 'LOCAL'
+  const hasEmailChanged =
+    isLocalAuth &&
+    companyEmail.trim().toLowerCase() !== (employee?.user?.email || '').trim().toLowerCase()
+
   // ─── Save Profile Edits ───
-  const handleSaveProfile = async () => {
+  const handleSaveProfile = () => {
     if (profileSaving) return
 
     if (!firstName.trim() || !lastName.trim()) {
       toast.error('First name and last name are required')
       return
     }
+    if (!companyEmail.trim()) {
+      setEmailError('Company email is required')
+      return
+    }
     if (!designationId) {
       toast.error('Designation is required')
       return
     }
+    if (secondaryManagerId && managerId && secondaryManagerId === managerId) {
+      toast.error('Secondary manager cannot be the same as primary manager')
+      return
+    }
+    if (dateOfBirth && dayjs(dateOfBirth).isAfter(dayjs())) {
+      toast.error('Date of birth cannot be in the future')
+      return
+    }
 
+    if (hasEmailChanged) {
+      setEmailConfirmOpen(true)
+    } else {
+      executeSaveProfile()
+    }
+  }
+
+  const executeSaveProfile = async () => {
+    setEmailConfirmOpen(false)
+    setEmailError('')
     setProfileSaving(true)
     try {
-      const computedDisplayName =
-        displayName.trim() || `${firstName.trim()} ${lastName.trim()}`
+      const normalizedEmail = companyEmail.trim().toLowerCase()
 
-      let updatedResult = await employeeApi.updateAdmin(employee.id, {
+      // If email changed, call updateEmail first (Amendment 3: sends only { email })
+      if (hasEmailChanged && employee.userId) {
+        try {
+          await userApi.updateEmail(employee.userId, { email: normalizedEmail })
+        } catch (err: any) {
+          const msg =
+            err?.response?.data?.message || err?.message || 'Failed to update company email'
+          setEmailError(msg)
+          setProfileSaving(false)
+          toast.error(msg)
+          return
+        }
+      }
+
+      const computedDisplayName =
+        displayName.trim() || [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ')
+
+      const updatedResult = await employeeApi.updateAdmin(employee.id, {
         firstName: firstName.trim(),
+        middleName: middleName.trim() || null,
         lastName: lastName.trim(),
         displayName: computedDisplayName,
+        personalEmail: personalEmail.trim() || null,
+        phone: phone.trim() || null,
+        gender: (gender as Gender) || null,
+        dateOfBirth: dateOfBirth ? dayjs(dateOfBirth).format('YYYY-MM-DD') : null,
+        joiningDate: joiningDate ? dayjs(joiningDate).format('YYYY-MM-DD') : undefined,
         departmentId: departmentId || null,
         teamId: usesTeams ? teamId || null : null,
         designationId,
         isActive,
         isProbation,
+        managerId: managerId || null,
+        secondaryManagerId: secondaryManagerId || null,
       })
-
-      if (managerId !== (employee.managerId || '')) {
-        updatedResult = await employeeApi.changeManager(employee.id, managerId || null)
-      }
 
       const selectedDept = departments.find((d) => d.id === departmentId)
       const selectedTm = teams.find((t) => t.id === teamId)
       const selectedDesig = designations.find((d) => d.id === designationId)
       const selectedMgr = allEmployees.find((e) => e.id === managerId)
+      const selectedSecMgr = allEmployees.find((e) => e.id === secondaryManagerId)
 
       const mergedListItem: EmployeeListItem = {
         ...employee,
         ...updatedResult,
+        firstName: firstName.trim(),
+        middleName: middleName.trim() || null,
+        lastName: lastName.trim(),
+        displayName: computedDisplayName,
+        phone: phone.trim() || null,
+        gender: (gender as Gender) || null,
+        dateOfBirth: dateOfBirth ? dayjs(dateOfBirth).toISOString() : null,
+        joiningDate: joiningDate ? dayjs(joiningDate).toISOString() : employee.joiningDate,
         departmentId: departmentId || null,
         department: updatedResult.department ?? (selectedDept ? { id: selectedDept.id, name: selectedDept.name } : null),
         teamId: usesTeams ? teamId || null : null,
@@ -366,7 +449,14 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
         designationId,
         designation: updatedResult.designation ?? (selectedDesig ? { name: selectedDesig.name } : employee.designation),
         managerId: managerId || null,
-        manager: updatedResult.manager ?? (selectedMgr ? { id: selectedMgr.id, displayName: selectedMgr.displayName } : null),
+        manager: updatedResult.manager ?? (selectedMgr ? { id: selectedMgr.id, displayName: selectedMgr.displayName, employeeCode: selectedMgr.employeeCode } : null),
+        secondaryManagerId: secondaryManagerId || null,
+        secondaryManager: (updatedResult as any).secondaryManager ?? (selectedSecMgr ? { id: selectedSecMgr.id, displayName: selectedSecMgr.displayName, employeeCode: selectedSecMgr.employeeCode } : null),
+        user: {
+          ...employee.user,
+          email: hasEmailChanged ? normalizedEmail : (employee.user?.email || ''),
+          personalEmail: personalEmail.trim() || null,
+        },
         isActive,
         isProbation,
       }
@@ -377,7 +467,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
       toast.success('Employee profile updated successfully')
     } catch (err: any) {
       setProfileSaving(false)
-      toast.error(err?.response?.data?.message || 'Failed to update employee')
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to update employee')
     }
   }
 
@@ -577,6 +667,33 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                 Administrative Employee Details
               </Typography>
 
+              {/* Company Login Email */}
+              <Tooltip
+                title={!isLocalAuth ? "Email is managed by your SSO provider for this account" : ""}
+                arrow
+              >
+                <TextField
+                  label="Company Email Address (Login)"
+                  fullWidth
+                  size="small"
+                  type="email"
+                  value={companyEmail}
+                  onChange={(e) => {
+                    setCompanyEmail(e.target.value)
+                    if (emailError) setEmailError('')
+                  }}
+                  disabled={profileSaving || !isLocalAuth}
+                  error={Boolean(emailError)}
+                  helperText={
+                    emailError ||
+                    (!isLocalAuth
+                      ? "Email is managed by your SSO provider for this account"
+                      : "Primary organization login email (changing this requires employee to re-login)")
+                  }
+                  required
+                />
+              </Tooltip>
+
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   label="First Name"
@@ -586,6 +703,14 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={profileSaving}
                   required
+                />
+                <TextField
+                  label="Middle Name"
+                  fullWidth
+                  size="small"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                  disabled={profileSaving}
                 />
                 <TextField
                   label="Last Name"
@@ -608,7 +733,78 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                 helperText="Formatted name displayed throughout the system"
               />
 
-              <Divider sx={{ my: 1 }} />
+              <Divider sx={{ my: 0.5 }} />
+
+              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                Contact & Personal Information
+              </Typography>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="Personal Email"
+                  type="email"
+                  fullWidth
+                  size="small"
+                  value={personalEmail}
+                  onChange={(e) => setPersonalEmail(e.target.value)}
+                  disabled={profileSaving}
+                  placeholder="e.g. personal@gmail.com"
+                />
+                <TextField
+                  label="Phone Number"
+                  fullWidth
+                  size="small"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={profileSaving}
+                  placeholder="+1 555-0199"
+                />
+              </Stack>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select
+                  label="Gender"
+                  fullWidth
+                  size="small"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as Gender | '')}
+                  disabled={profileSaving}
+                >
+                  <MenuItem value="">— Not Specified —</MenuItem>
+                  <MenuItem value="MALE">Male</MenuItem>
+                  <MenuItem value="FEMALE">Female</MenuItem>
+                  <MenuItem value="OTHER">Other</MenuItem>
+                </TextField>
+
+                <TextField
+                  label="Date of Birth"
+                  type="date"
+                  fullWidth
+                  size="small"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  disabled={profileSaving}
+                  InputLabelProps={{ shrink: true }}
+                />
+
+                <TextField
+                  label="Joining Date"
+                  type="date"
+                  fullWidth
+                  size="small"
+                  value={joiningDate}
+                  onChange={(e) => setJoiningDate(e.target.value)}
+                  disabled={profileSaving}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Stack>
+
+              <Divider sx={{ my: 0.5 }} />
+
+              <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                Organization & Hierarchy
+              </Typography>
 
               {/* Department & Team Search + Select */}
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -668,40 +864,57 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                 )}
               </Stack>
 
-              {/* Designation & Manager Search + Select */}
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Autocomplete<Designation, false, false, false>
-                  value={selectedDesignation}
-                  onChange={(_, newValue) => {
-                    setDesignationId(newValue ? newValue.id : '')
-                  }}
-                  options={designations}
-                  filterOptions={filterDesignations}
-                  getOptionLabel={(option) => option.name}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  disabled={profileSaving}
-                  fullWidth
-                  size="small"
-                  noOptionsText="No matching designations"
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Designation *"
-                      required
-                      placeholder="Search or select designation..."
-                    />
-                  )}
-                />
+              {/* Designation */}
+              <Autocomplete<Designation, false, false, false>
+                value={selectedDesignation}
+                onChange={(_, newValue) => {
+                  setDesignationId(newValue ? newValue.id : '')
+                }}
+                options={designations}
+                filterOptions={filterDesignations}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, val) => option.id === val.id}
+                disabled={profileSaving}
+                fullWidth
+                size="small"
+                noOptionsText="No matching designations"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Designation *"
+                    required
+                    placeholder="Search or select designation..."
+                  />
+                )}
+              />
 
+              {/* Primary & Secondary Managers */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <Box sx={{ width: '100%' }}>
                   <EmployeeAutocomplete
                     value={managerId}
-                    onChange={(newVal) => setManagerId(newVal)}
+                    onChange={(newVal) => {
+                      setManagerId(newVal)
+                      if (secondaryManagerId && secondaryManagerId === newVal) {
+                        setSecondaryManagerId('')
+                      }
+                    }}
                     employees={eligibleManagers}
                     disabled={profileSaving}
                     size="small"
-                    label="Reporting Manager"
+                    label="Primary Reporting Manager"
                     placeholder="Search manager by name, code, email..."
+                  />
+                </Box>
+                <Box sx={{ width: '100%' }}>
+                  <EmployeeAutocomplete
+                    value={secondaryManagerId}
+                    onChange={(newVal) => setSecondaryManagerId(newVal)}
+                    employees={eligibleSecondaryManagers}
+                    disabled={profileSaving}
+                    size="small"
+                    label="Secondary Reporting Manager (Optional)"
+                    placeholder="Search secondary manager..."
                   />
                 </Box>
               </Stack>
@@ -1271,6 +1484,42 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
             disabled={cancelSubmitting || !cancelReason.trim()}
           >
             {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Email Change Confirmation Dialog */}
+      <Dialog
+        open={emailConfirmOpen}
+        onClose={() => !profileSaving && setEmailConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Confirm Login Email Change
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Changing this employee&apos;s login email to{' '}
+            <strong>{companyEmail.trim().toLowerCase()}</strong> will require them to log in again with the new address.
+            Any active sessions tied to the previous address will be invalidated.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setEmailConfirmOpen(false)}
+            color="inherit"
+            disabled={profileSaving}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={executeSaveProfile}
+            disabled={profileSaving}
+          >
+            {profileSaving ? 'Updating...' : 'Confirm & Save'}
           </Button>
         </DialogActions>
       </Dialog>

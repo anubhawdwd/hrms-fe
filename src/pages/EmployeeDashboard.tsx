@@ -248,7 +248,7 @@ const EmployeeDashboard = () => {
 
   // Weekly calendar state
   const [weekOffset, setWeekOffset] = useState(0)
-  const { days: weekDays, loading: weekLoading } =
+  const { days: weekDays, loading: weekLoading, load: loadWeekly } =
     useWeeklyAttendance(weekOffset)
 
   // Live timer — now with seconds
@@ -397,7 +397,7 @@ const EmployeeDashboard = () => {
     try {
       await checkIn()
       toast.success('Checked in successfully!')
-      loadAttendance()
+      await Promise.all([loadAttendance(), loadWeekly()])
     } catch (err: any) {
       toast.error(err?.message || 'Check-in failed')
     }
@@ -407,7 +407,7 @@ const EmployeeDashboard = () => {
     try {
       await checkOut()
       toast.success('Checked out successfully!')
-      loadAttendance()
+      await Promise.all([loadAttendance(), loadWeekly()])
     } catch (err: any) {
       toast.error(err?.message || 'Check-out failed')
     }

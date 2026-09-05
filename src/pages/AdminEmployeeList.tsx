@@ -167,8 +167,7 @@ const AdminEmployeeList = () => {
               '&:hover': { textDecoration: 'underline' },
             }}
             onClick={() => {
-              setSelectedEmployeeForEdit(row)
-              setQuickEditOpen(true)
+              navigate(`/admin/employees/${row.id}`)
             }}
           >
             {row.displayName}

@@ -123,25 +123,24 @@ export const useEmployeeById = (id?: string) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetch = useCallback(async () => {
     if (!id) return
+    setLoading(true)
+    setError(null)
 
-    const fetch = async () => {
-      setLoading(true)
-      setError(null)
-
-      try {
-        const data = await employeeApi.getById(id)
-        setEmployee(data)
-      } catch {
-        setError('Failed to load employee')
-      } finally {
-        setLoading(false)
-      }
+    try {
+      const data = await employeeApi.getById(id)
+      setEmployee(data)
+    } catch {
+      setError('Failed to load employee')
+    } finally {
+      setLoading(false)
     }
-
-    fetch()
   }, [id])
 
-  return { employee, loading, error }
+  useEffect(() => {
+    fetch()
+  }, [fetch])
+
+  return { employee, loading, error, reload: fetch }
 }

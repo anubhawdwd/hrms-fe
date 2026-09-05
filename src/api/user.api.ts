@@ -28,6 +28,17 @@ export const userApi = {
     return data
   },
 
+  updateEmail: async (
+    userId: string,
+    payload: { email: string }
+  ): Promise<{ message: string }> => {
+    const { data } = await apiClient.patch<{ message: string }>(
+      `/api/users/${userId}/email`,
+      payload
+    )
+    return data
+  },
+
   resetPassword: async (userId: string, manualPassword?: string): Promise<{ message: string; temporaryPassword: string }> => {
     const { data } = await apiClient.post<{ message: string; temporaryPassword: string }>(`/api/users/${userId}/reset-password`, { manualPassword })
     return data
