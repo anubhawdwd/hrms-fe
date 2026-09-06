@@ -59,9 +59,11 @@ export interface AdminEmployeeLeaveProfileModalProps {
 
 const statusConfig: Record<
   string,
-  { color: 'warning' | 'success' | 'error' | 'default'; label: string }
+  { color: 'warning' | 'info' | 'success' | 'error' | 'default'; label: string }
 > = {
-  PENDING: { color: 'warning', label: 'Pending' },
+  PENDING: { color: 'warning', label: 'Pending Approval' },
+  PENDING_MANAGER: { color: 'warning', label: 'Pending Manager' },
+  PENDING_HR: { color: 'info', label: 'Pending HR' },
   APPROVED: { color: 'success', label: 'Approved' },
   REJECTED: { color: 'error', label: 'Rejected' },
   CANCELLED: { color: 'default', label: 'Cancelled' },

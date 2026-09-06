@@ -133,25 +133,40 @@ export const AdminMarkLeaveDialog = ({
               onChange={(e) => setLeaveTypeId(e.target.value)}
               disabled={submitting}
               helperText={
-                selectedBalance
-                  ? `Available: ${formatLeaveDays(selectedBalance.remaining)} days · Used: ${formatLeaveDays(selectedBalance.used)} days`
-                  : 'Select leave type'
+                (() => {
+                  const selType = leaveTypes.find((t) => t.id === leaveTypeId)
+                  if (selType && (selType.isPaid === false || selType.code === 'LWP')) {
+                    return 'Unpaid leave (Unlimited / No quota deduction)'
+                  }
+                  return selectedBalance
+                    ? `Available: ${formatLeaveDays(selectedBalance.remaining)} days · Used: ${formatLeaveDays(selectedBalance.used)} days`
+                    : 'Select leave type'
+                })()
               }
             >
               {leaveTypes.map((type) => {
+                const isUnpaid = type.isPaid === false || type.code === 'LWP'
                 const bal = leaveBalances.find((b) => b.leaveTypeId === type.id || b.leaveType?.id === type.id || b.leaveType?.name === type.name)
                 return (
                   <MenuItem key={type.id} value={type.id}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
                       <span>{type.name}</span>
-                      {bal && (
+                      {isUnpaid ? (
+                        <Chip
+                          label="Unpaid (LWP)"
+                          size="small"
+                          color="warning"
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 600 }}
+                        />
+                      ) : bal ? (
                         <Chip
                           label={`${formatLeaveDays(bal.remaining)} Available`}
                           size="small"
                           color={bal.remaining > 0 ? 'success' : 'default'}
                           sx={{ height: 20, fontSize: '0.75rem' }}
                         />
-                      )}
+                      ) : null}
                     </Box>
                   </MenuItem>
                 )

@@ -1,5 +1,6 @@
 // src/api/report.api.ts
-import { apiClient } from './client'
+import { apiClient } from "./client"
+import type { DashboardAttendanceStatus } from "../types/attendance.types"
 
 export interface EmployeeReportRow {
   employeeCode: number | string
@@ -23,7 +24,7 @@ export interface EmployeeReportRow {
 }
 
 export interface EmployeeReportResponse {
-  reportType: 'EMPLOYEE'
+  reportType: "EMPLOYEE"
   companyName: string
   departmentLabel: string
   teamLabel: string
@@ -64,7 +65,7 @@ export interface LeaveReportEmployeeRow {
 }
 
 export interface LeaveReportPendingWarning {
-  warning: 'PENDING_LEAVE_APPROVALS'
+  warning: "PENDING_LEAVE_APPROVALS"
   hasPending: true
   pendingCount: number
   pendingTotalDays: number
@@ -72,7 +73,7 @@ export interface LeaveReportPendingWarning {
 }
 
 export interface LeaveReportSuccessResponse {
-  reportType: 'LEAVE'
+  reportType: "LEAVE"
   companyName: string
   year: number
   fromDate?: string
@@ -93,6 +94,87 @@ export interface LeaveReportSuccessResponse {
 
 export type LeaveReportResponse = LeaveReportPendingWarning | LeaveReportSuccessResponse
 
+// ─── ATTENDANCE REPORT TYPES ───
+
+export interface AttendanceReportDayCell {
+  date: string
+  status: DashboardAttendanceStatus
+  checkIn: string | null
+  checkOut: string | null
+  totalMinutes: number
+  leaveType: string | null
+  leaveDuration: "FULL_DAY" | "HALF_DAY" | "QUARTER_DAY" | "HOURLY" | null
+  holidayName: string | null
+  isAutoPresent: boolean
+  isExempt: boolean
+}
+
+export interface AttendanceReportEmployeeRow {
+  employeeId: string
+  employeeCode: number | string
+  displayName: string
+  email: string
+  department: string
+  designation: string
+  team: string
+  summary: {
+    present: number
+    absent: number
+    partial: number
+    onLeave: number
+    pendingLeave: number
+    holiday: number
+    weekend: number
+    unrecorded: number
+    totalWorkingDays: number
+    totalPresentDays: number
+    attendancePercentage: number
+  }
+  days: Record<string, AttendanceReportDayCell>
+}
+
+export interface AttendanceReportHeaderDay {
+  date: string
+  dayOfWeek: string
+  dayNumber: number
+  isWeekend: boolean
+  holidayName: string | null
+}
+
+export interface AttendanceReportResponse {
+  reportType: "ATTENDANCE"
+  companyName: string
+  periodLabel: string
+  dateRangeLabel: string
+  startDate: string
+  endDate: string
+  departmentLabel: string
+  teamLabel: string
+  generatedAt: string
+  totalDays: number
+  daysHeader: AttendanceReportHeaderDay[]
+  totalEmployees: number
+  companySummary: {
+    totalEmployees: number
+    totalWorkingDays: number
+    avgAttendancePercentage: number
+  }
+  dailySummary: Record<
+    string,
+    {
+      present: number
+      absent: number
+      partial: number
+      onLeave: number
+      pendingLeave: number
+      holiday: number
+      weekend: number
+      unrecorded: number
+    }
+  >
+  data: AttendanceReportEmployeeRow[]
+}
+
 export const reportApi = {
   fetchEmployeeReport: async (params: {
     departmentId?: string
@@ -100,7 +182,7 @@ export const reportApi = {
     status?: string
     search?: string
   }): Promise<EmployeeReportResponse> => {
-    const res = await apiClient.get('/api/reports/employee', { params })
+    const res = await apiClient.get("/api/reports/employee", { params })
     return res.data
   },
 
@@ -110,21 +192,21 @@ export const reportApi = {
       teamId?: string
       status?: string
       search?: string
-      format: 'excel' | 'csv'
+      format: "excel" | "csv"
     }
   ) => {
-    const res = await apiClient.get('/api/reports/employee/export', {
+    const res = await apiClient.get("/api/reports/employee/export", {
       params,
-      responseType: 'blob',
+      responseType: "blob",
     })
     const dateStr = new Date().toISOString().slice(0, 10)
-    const ext = params.format === 'csv' ? 'csv' : 'xlsx'
+    const ext = params.format === "csv" ? "csv" : "xlsx"
     const fileName = `Employee_Report_${dateStr}.${ext}`
 
     const url = window.URL.createObjectURL(new Blob([res.data]))
-    const link = document.createElement('a')
+    const link = document.createElement("a")
     link.href = url
-    link.setAttribute('download', fileName)
+    link.setAttribute("download", fileName)
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -140,7 +222,7 @@ export const reportApi = {
     employeeId?: string
     confirmPending?: boolean
   }): Promise<LeaveReportResponse> => {
-    const res = await apiClient.get('/api/reports/leave', { params })
+    const res = await apiClient.get("/api/reports/leave", { params })
     return res.data
   },
 
@@ -153,33 +235,78 @@ export const reportApi = {
       teamId?: string
       employeeId?: string
       confirmPending?: boolean
-      format: 'excel' | 'csv'
+      format: "excel" | "csv"
     }
   ) => {
-    const res = await apiClient.get('/api/reports/leave/export', {
+    const res = await apiClient.get("/api/reports/leave/export", {
       params,
-      responseType: 'blob',
+      responseType: "blob",
     })
 
     // Check if the response returned JSON error/warning instead of blob
-    if (res.data.type === 'application/json') {
+    if (res.data.type === "application/json") {
       const text = await res.data.text()
       const json = JSON.parse(text)
       return json
     }
 
     const dateStr = new Date().toISOString().slice(0, 10)
-    const ext = params.format === 'csv' ? 'csv' : 'xlsx'
+    const ext = params.format === "csv" ? "csv" : "xlsx"
     const fileName = `Leave_Report_${params.year || dateStr}.${ext}`
 
     const url = window.URL.createObjectURL(new Blob([res.data]))
-    const link = document.createElement('a')
+    const link = document.createElement("a")
     link.href = url
-    link.setAttribute('download', fileName)
+    link.setAttribute("download", fileName)
     document.body.appendChild(link)
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
     return null
+  },
+
+  fetchAttendanceReport: async (params: {
+    year?: number
+    month?: string
+    fromDate?: string
+    toDate?: string
+    departmentId?: string
+    teamId?: string
+    employeeId?: string
+    search?: string
+  }): Promise<AttendanceReportResponse> => {
+    const res = await apiClient.get("/api/reports/attendance", { params })
+    return res.data
+  },
+
+  downloadAttendanceReport: async (
+    params: {
+      year?: number
+      month?: string
+      fromDate?: string
+      toDate?: string
+      departmentId?: string
+      teamId?: string
+      employeeId?: string
+      search?: string
+      format: "excel" | "csv"
+    }
+  ) => {
+    const res = await apiClient.get("/api/reports/attendance/export", {
+      params,
+      responseType: "blob",
+    })
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const ext = params.format === "csv" ? "csv" : "xlsx"
+    const fileName = `Attendance_Report_${dateStr}.${ext}`
+
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement("a")
+    link.href = url
+    link.setAttribute("download", fileName)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(url)
   },
 }

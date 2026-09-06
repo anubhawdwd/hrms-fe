@@ -462,7 +462,8 @@ const AdminLeaveDashboard: React.FC = () => {
             sx={{
               p: 2.5,
               borderRadius: '16px',
-              height: '100%',
+              height: 520,
+              maxHeight: 520,
               display: 'flex',
               flexDirection: 'column',
               bgcolor: 'background.paper',
@@ -510,7 +511,7 @@ const AdminLeaveDashboard: React.FC = () => {
 
             {/* Section Body */}
             {todayLoading ? (
-              <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CircularProgress size={28} />
               </Box>
             ) : todayError ? (
@@ -526,14 +527,14 @@ const AdminLeaveDashboard: React.FC = () => {
                 {todayError}
               </Alert>
             ) : todayLeaves.length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                 <EmptyState
                   title="No Employees On Leave"
                   subtitle="Everyone scheduled for work today is expected to be present."
                 />
               </Box>
             ) : (
-              <Stack spacing={1.5} sx={{ flex: 1, overflowY: 'auto' }}>
+              <Stack spacing={1.5} sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pr: 0.5, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: alpha(theme.palette.text.primary, 0.12), borderRadius: 3 } }}>
                 {todayLeaves.map((emp) => (
                   <Paper
                     key={emp.employeeId}
@@ -619,7 +620,8 @@ const AdminLeaveDashboard: React.FC = () => {
             sx={{
               p: 2.5,
               borderRadius: '16px',
-              height: '100%',
+              height: 520,
+              maxHeight: 520,
               display: 'flex',
               flexDirection: 'column',
               bgcolor: 'background.paper',
@@ -667,7 +669,7 @@ const AdminLeaveDashboard: React.FC = () => {
 
             {/* Section Body */}
             {pendingLoading ? (
-              <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CircularProgress size={28} />
               </Box>
             ) : pendingError ? (
@@ -683,14 +685,14 @@ const AdminLeaveDashboard: React.FC = () => {
                 {pendingError}
               </Alert>
             ) : pendingRequests.length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                 <EmptyState
                   title="No Pending Approvals"
                   subtitle="All leave applications have been reviewed and processed."
                 />
               </Box>
             ) : (
-              <Stack spacing={2} sx={{ flex: 1, overflowY: 'auto' }}>
+              <Stack spacing={2} sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pr: 0.5, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: alpha(theme.palette.text.primary, 0.12), borderRadius: 3 } }}>
                 {pendingRequests.map((req) => {
                   const isProcessing = Boolean(actionInProgress[req.id])
                   const isApproving = actionInProgress[req.id] === 'approve'
@@ -883,7 +885,8 @@ const AdminLeaveDashboard: React.FC = () => {
             sx={{
               p: 2.5,
               borderRadius: '16px',
-              height: '100%',
+              height: 520,
+              maxHeight: 520,
               display: 'flex',
               flexDirection: 'column',
               bgcolor: 'background.paper',
@@ -931,7 +934,7 @@ const AdminLeaveDashboard: React.FC = () => {
 
             {/* Section Body */}
             {recentLoading ? (
-              <Box sx={{ py: 4, display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CircularProgress size={28} />
               </Box>
             ) : recentError ? (
@@ -947,14 +950,14 @@ const AdminLeaveDashboard: React.FC = () => {
                 {recentError}
               </Alert>
             ) : recentApproved.length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
                 <EmptyState
                   title="No Recent Approvals"
                   subtitle="No leave requests were approved in the last 7 days."
                 />
               </Box>
             ) : (
-              <Stack spacing={1.75} sx={{ flex: 1, overflowY: 'auto' }}>
+              <Stack spacing={1.75} sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pr: 0.5, '&::-webkit-scrollbar': { width: 6 }, '&::-webkit-scrollbar-thumb': { backgroundColor: alpha(theme.palette.text.primary, 0.12), borderRadius: 3 } }}>
                 {recentApproved.map((req) => (
                   <Paper
                     key={req.id}
