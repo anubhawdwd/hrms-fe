@@ -244,9 +244,13 @@ export const leaveApi = {
     return data
   },
 
-  reject: async (requestId: string): Promise<LeaveRequest> => {
+  reject: async (
+    requestId: string,
+    reason?: string
+  ): Promise<LeaveRequest> => {
     const { data } = await apiClient.patch<LeaveRequest>(
-      `/api/leave/requests/${requestId}/reject`
+      `/api/leave/requests/${requestId}/reject`,
+      { reason }
     )
     return data
   },

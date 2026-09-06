@@ -103,7 +103,7 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
   // Count pending days in draft state
   const pendingCount = useMemo(() => {
     return days.filter(
-      (day) => (draftDaysStatus[day.id] ?? day.status) === 'PENDING'
+      (day) => { const s = draftDaysStatus[day.id] ?? day.status; return s === 'PENDING' || s === 'PENDING_MANAGER' || s === 'PENDING_HR'; }
     ).length
   }, [days, draftDaysStatus])
 
@@ -137,7 +137,8 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
     setDraftDaysStatus((prev) => {
       const next = { ...prev }
       days.forEach((day) => {
-        if ((next[day.id] ?? day.status) === 'PENDING') {
+        const s = next[day.id] ?? day.status;
+        if (s === 'PENDING' || s === 'PENDING_MANAGER' || s === 'PENDING_HR') {
           next[day.id] = 'APPROVED'
         }
       })
@@ -150,7 +151,8 @@ export const AdminLeaveDayBreakdownDialog: React.FC<AdminLeaveDayBreakdownDialog
     setDraftDaysStatus((prev) => {
       const next = { ...prev }
       days.forEach((day) => {
-        if ((next[day.id] ?? day.status) === 'PENDING') {
+        const s = next[day.id] ?? day.status;
+        if (s === 'PENDING' || s === 'PENDING_MANAGER' || s === 'PENDING_HR') {
           next[day.id] = 'REJECTED'
         }
       })

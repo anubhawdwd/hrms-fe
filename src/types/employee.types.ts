@@ -34,6 +34,7 @@ export interface EmployeeListItem {
     personalEmail?: string | null
     authProvider?: AuthProvider
     role?: UserRole
+    roles?: UserRole[]
     isActive?: boolean
   }
   department?: { id: string; name: string } | null
@@ -65,6 +66,7 @@ export interface OnboardEmployeePayload {
   email: string
   authProvider?: AuthProvider
   role?: UserRole
+  roles?: UserRole[]
   password?: string
 
   firstName: string

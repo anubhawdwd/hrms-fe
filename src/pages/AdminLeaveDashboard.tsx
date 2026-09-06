@@ -117,7 +117,8 @@ const HrCancelDialog: React.FC<HrCancelDialogProps> = ({
         )}
       </DialogTitle>
 
-      <DialogContent sx={{ pt: 1.5 }}>
+      <DialogContent sx={{ pt: '24px !important', px: 3, pb: 2 }}>
+        <Box sx={{ pt: 0.5 }}>
         <TextField
           label="Cancellation Reason"
           value={reason}
@@ -148,6 +149,7 @@ const HrCancelDialog: React.FC<HrCancelDialogProps> = ({
             </Typography>
           </Box>
         )}
+      </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
@@ -732,17 +734,43 @@ const AdminLeaveDashboard: React.FC = () => {
                             {req.employee.team ? ` • ${req.employee.team.name}` : ''}
                           </Typography>
                         </Box>
-                        <Chip
-                          label={req.leaveType.name}
-                          size="small"
-                          sx={{
-                            height: 20,
-                            fontSize: '0.6875rem',
-                            fontWeight: 700,
-                            bgcolor: alpha(theme.palette.warning.main, 0.1),
-                            color: 'warning.dark',
-                          }}
-                        />
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          {req.status === 'PENDING_MANAGER' && (
+                            <Chip
+                              label="Stage 1: Pending Manager"
+                              size="small"
+                              color="warning"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.6875rem',
+                                fontWeight: 700,
+                              }}
+                            />
+                          )}
+                          {req.status === 'PENDING_HR' && (
+                            <Chip
+                              label="Stage 2: Pending HR"
+                              size="small"
+                              color="info"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.6875rem',
+                                fontWeight: 700,
+                              }}
+                            />
+                          )}
+                          <Chip
+                            label={req.leaveType.name}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.6875rem',
+                              fontWeight: 700,
+                              bgcolor: alpha(theme.palette.warning.main, 0.1),
+                              color: 'warning.dark',
+                            }}
+                          />
+                        </Stack>
                       </Box>
 
                       {/* Middle: Dates & Duration */}
@@ -817,7 +845,7 @@ const AdminLeaveDashboard: React.FC = () => {
                           onClick={() => handleApprove(req.id)}
                           sx={{ borderRadius: '8px', fontWeight: 700 }}
                         >
-                          {isApproving ? 'Approving...' : 'Approve'}
+                          {isApproving ? 'Processing...' : req.status === 'PENDING_MANAGER' ? 'Approve (Manager)' : 'Approve'}
                         </Button>
                         <Button
                           variant="outlined"

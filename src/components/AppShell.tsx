@@ -39,6 +39,7 @@ import { authApi } from "../api/auth.api"
 import { clearAuth } from "../store/auth.slice"
 import { useUser } from "../hooks/useAuth"
 import { getDashboardRoute } from "../utils/dashboard"
+import type { UserRole } from "../types/auth.types"
 import ChangePasswordModal from "./ChangePasswordModal"
 
 interface NavItem {
@@ -57,7 +58,7 @@ function getInitials(email?: string): string {
   return (namePart.slice(0, 2) || "U").toUpperCase()
 }
 
-function formatRole(role?: string): string {
+function formatSingleRole(role?: string): string {
   if (!role) return ""
   switch (role) {
     case "COMPANY_ADMIN":
@@ -73,11 +74,29 @@ function formatRole(role?: string): string {
   }
 }
 
+function formatRoles(roles: UserRole[]): string {
+  if (roles.length === 0) return ""
+  // Sort roles to present senior/admin roles first: SUPER_ADMIN > COMPANY_ADMIN > HR > EMPLOYEE
+  const roleOrder: Record<UserRole, number> = {
+    SUPER_ADMIN: 1,
+    COMPANY_ADMIN: 2,
+    HR: 3,
+    EMPLOYEE: 4,
+  }
+  const sorted = [...roles].sort((a, b) => (roleOrder[a] || 99) - (roleOrder[b] || 99))
+  return sorted.map(formatSingleRole).join(" • ")
+}
+
 const AppShell = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
   const location = useLocation()
   const user = useUser()
+
+  // Extract all active user roles
+  const userRoles = (user?.roles && user.roles.length > 0
+    ? user.roles
+    : (user?.role ? [user.role] : [])) as UserRole[]
 
   // User Profile Dropdown Menu State
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null)
@@ -90,8 +109,12 @@ const AppShell = () => {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
 
   const isEmployeeView = location.pathname.startsWith("/employee")
-  const isHrOrAdmin = user?.role === "HR" || user?.role === "COMPANY_ADMIN"
-  const isSuperAdmin = user?.role === "SUPER_ADMIN"
+  const isSuperAdmin = userRoles.includes("SUPER_ADMIN")
+  const hasAdminRole = userRoles.includes("COMPANY_ADMIN") || userRoles.includes("HR")
+  const hasEmployeeRole = userRoles.includes("EMPLOYEE")
+
+  // Multi-role switch option is available ONLY when user holds roles across different dashboard domains
+  const canSwitchViews = hasAdminRole && hasEmployeeRole
 
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setUserMenuAnchor(event.currentTarget)
@@ -116,10 +139,14 @@ const AppShell = () => {
   const handleHomeClick = () => {
     if (isSuperAdmin) {
       navigate("/super-admin")
-    } else if (isHrOrAdmin) {
+    } else if (canSwitchViews) {
       navigate(isEmployeeView ? "/employee" : "/admin")
+    } else if (hasAdminRole) {
+      navigate("/admin")
+    } else if (hasEmployeeRole) {
+      navigate("/employee")
     } else {
-      const homeRoute = getDashboardRoute(user?.role)
+      const homeRoute = getDashboardRoute(userRoles)
       navigate(homeRoute)
     }
   }
@@ -148,7 +175,7 @@ const AppShell = () => {
   const getNavItems = (): NavItem[] => {
     if (!user) return []
 
-    if (user.role === "SUPER_ADMIN") {
+    if (isSuperAdmin) {
       return [
         { label: "Companies", path: "/super-admin", icon: <BusinessIcon fontSize="small" /> },
         { label: "Admins", path: "/super-admin/admins", icon: <AdminPanelSettingsIcon fontSize="small" /> },
@@ -156,21 +183,26 @@ const AppShell = () => {
       ]
     }
 
-    if (isHrOrAdmin) {
-      if (isEmployeeView) {
-        return [
-          { label: "My Dashboard", path: "/employee", icon: <DashboardIcon fontSize="small" /> },
-        ]
-      }
+    if (isEmployeeView) {
       return [
-        { label: "Dashboard", path: "/admin", icon: <DashboardIcon fontSize="small" /> },
+        { label: "My Dashboard", path: "/employee", icon: <DashboardIcon fontSize="small" /> },
+      ]
+    }
+
+    if (hasAdminRole) {
+      return [
+        {
+          label: "Dashboard",
+          path: "/admin",
+          icon: <DashboardIcon fontSize="small" />,
+        },
         { label: "Attendance", path: "/admin/attendance-dashboard", icon: <HowToRegIcon fontSize="small" /> },
         { label: "Reports", path: "/admin/reports", icon: <SummarizeIcon fontSize="small" /> },
         { label: "Holidays", path: "/admin/holidays", icon: <CelebrationIcon fontSize="small" /> },
       ]
     }
 
-    if (user.role === "EMPLOYEE") {
+    if (hasEmployeeRole) {
       return [
         { label: "Dashboard", path: "/employee", icon: <DashboardIcon fontSize="small" /> },
       ]
@@ -201,7 +233,7 @@ const AppShell = () => {
     ? "Platform Administration"
     : user?.companyName || "Company Workspace"
   const userInitials = getInitials(user?.email)
-  const roleLabel = formatRole(user?.role)
+  const roleLabel = formatRoles(userRoles)
 
   return (
     <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column", bgcolor: "grey.50" }}>
@@ -222,50 +254,33 @@ const AppShell = () => {
             }}
             sx={{
               display: "flex",
-              flexDirection: "column",
+              alignItems: "center",
+              gap: 1.5,
               cursor: "pointer",
               userSelect: "none",
-              py: 0.5,
-              px: 1,
-              borderRadius: 1.5,
-              transition: "background-color 0.15s ease",
-              "&:hover": {
-                bgcolor: "rgba(255, 255, 255, 0.15)",
-              },
-              "&:focus-visible": {
-                outline: "2px solid white",
-                outlineOffset: "2px",
-              },
+              "&:hover": { opacity: 0.9 },
             }}
-            aria-label="HRMS Home"
           >
-            <Typography
-              variant="h6"
-              fontWeight={800}
-              letterSpacing={1.2}
-              sx={{ color: "white", lineHeight: 1.1, fontSize: { xs: "1.1rem", sm: "1.25rem" } }}
-            >
+            <Typography variant="h6" fontWeight={800} letterSpacing={-0.5} noWrap>
               HRMS
             </Typography>
-            <Typography
-              variant="caption"
+            <Chip
+              label={companyName}
+              size="small"
               sx={{
-                color: "rgba(255, 255, 255, 0.75)",
-                fontSize: "0.7rem",
+                bgcolor: "rgba(255, 255, 255, 0.15)",
+                color: "inherit",
                 fontWeight: 600,
-                letterSpacing: 0.5,
-                lineHeight: 1,
-                mt: 0.2,
+                fontSize: "0.75rem",
+                display: { xs: "none", sm: "inline-flex" },
               }}
-            >
-              {companyName}
-            </Typography>
+            />
           </Box>
 
           {/* Center: Desktop Navigation Bar */}
           <Stack
             direction="row"
-            spacing={1}
+            spacing={0.5}
             sx={{
               display: { xs: "none", md: "flex" },
               alignItems: "center",
@@ -276,19 +291,17 @@ const AppShell = () => {
               return (
                 <Button
                   key={item.path}
-                  onClick={() => handleNavClick(item.path)}
                   startIcon={item.icon}
+                  onClick={() => handleNavClick(item.path)}
                   sx={{
-                    color: "white",
-                    fontWeight: active ? 700 : 500,
-                    fontSize: "0.875rem",
-                    px: 1.8,
-                    py: 0.8,
+                    color: "inherit",
+                    px: 1.5,
+                    py: 0.75,
                     borderRadius: 2,
-                    textTransform: "none",
-                    backgroundColor: active ? "rgba(255, 255, 255, 0.2)" : "transparent",
+                    fontWeight: active ? 700 : 500,
+                    bgcolor: active ? "rgba(255, 255, 255, 0.2)" : "transparent",
                     "&:hover": {
-                      backgroundColor: active ? "rgba(255, 255, 255, 0.28)" : "rgba(255, 255, 255, 0.1)",
+                      bgcolor: active ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.08)",
                     },
                     transition: "all 0.15s ease",
                   }}
@@ -299,66 +312,56 @@ const AppShell = () => {
             })}
           </Stack>
 
-          {/* Right: User Profile Controls + Mobile Hamburger */}
-          <Stack direction="row" spacing={1.5} alignItems="center">
-            {/* User Profile Pill Button */}
+          {/* Right: User Profile Menu & Mobile Hamburger */}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* User Profile Pill Trigger */}
             <Button
               onClick={handleUserMenuOpen}
               aria-controls={isUserMenuOpen ? "user-menu" : undefined}
               aria-haspopup="true"
               aria-expanded={isUserMenuOpen ? "true" : undefined}
-              endIcon={<ArrowDropDownIcon sx={{ color: "white" }} />}
               sx={{
-                textTransform: "none",
-                color: "white",
+                color: "inherit",
+                p: { xs: 0.5, sm: "4px 8px 4px 4px" },
                 borderRadius: 3,
-                px: 1.2,
-                py: 0.5,
-                bgcolor: "rgba(255, 255, 255, 0.12)",
-                "&:hover": {
-                  bgcolor: "rgba(255, 255, 255, 0.22)",
-                },
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
+                bgcolor: "rgba(255, 255, 255, 0.08)",
+                "&:hover": { bgcolor: "rgba(255, 255, 255, 0.16)" },
               }}
             >
-              <Avatar
-                sx={{
-                  width: 30,
-                  height: 30,
-                  fontSize: "0.8rem",
-                  fontWeight: 700,
-                  bgcolor: isSuperAdmin ? "secondary.main" : "primary.dark",
-                  color: "white",
-                }}
-              >
-                {userInitials}
-              </Avatar>
-              <Box sx={{ textAlign: "left", display: { xs: "none", sm: "block" } }}>
-                <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.1 }}>
-                  {roleLabel}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{ color: "rgba(255, 255, 255, 0.75)", fontSize: "0.68rem", display: "block" }}
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    bgcolor: isSuperAdmin ? "secondary.main" : "primary.dark",
+                  }}
                 >
-                  {user?.email}
-                </Typography>
-              </Box>
+                  {userInitials}
+                </Avatar>
+                <Box sx={{ display: { xs: "none", sm: "block" }, textAlign: "left", mr: 0.5 }}>
+                  <Typography variant="body2" fontWeight={600} lineHeight={1.2} noWrap sx={{ maxWidth: 140 }}>
+                    {roleLabel}
+                  </Typography>
+                  <Typography variant="caption" sx={{ opacity: 0.8 }} noWrap display="block">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <ArrowDropDownIcon fontSize="small" sx={{ display: { xs: "none", sm: "block" } }} />
+              </Stack>
             </Button>
 
-            {/* Mobile Hamburger Menu Button */}
+            {/* Mobile Hamburger Toggle */}
             {navItems.length > 0 && (
               <IconButton
                 color="inherit"
-                aria-label="Open navigation menu"
+                aria-label="open navigation drawer"
+                edge="end"
                 onClick={() => setMobileDrawerOpen(true)}
-                aria-expanded={mobileDrawerOpen}
                 sx={{
                   display: { xs: "flex", md: "none" },
-                  bgcolor: "rgba(255, 255, 255, 0.1)",
-                  "&:hover": { bgcolor: "rgba(255, 255, 255, 0.2)" },
+                  p: 1,
                 }}
               >
                 <MenuIcon />
@@ -418,8 +421,8 @@ const AppShell = () => {
 
         <Divider sx={{ my: 0.5 }} />
 
-        {/* Dual Mode Switch in Menu for HR/Company Admin */}
-        {isHrOrAdmin && [
+        {/* Multi-Role View Switcher: Shown ONLY when user holds multiple roles across different dashboards */}
+        {canSwitchViews && [
           <MenuItem key="toggle-view-mode" onClick={handleToggleViewMode} sx={{ py: 1 }}>
             <ListItemIcon>
               {isEmployeeView ? (
@@ -429,7 +432,7 @@ const AppShell = () => {
               )}
             </ListItemIcon>
             <ListItemText
-              primary={isEmployeeView ? "Switch to Admin / HR View" : "Switch to Employee View"}
+              primary={isEmployeeView ? "Switch to Admin View" : "Switch to Employee View"}
               primaryTypographyProps={{ variant: "body2", fontWeight: 600 }}
             />
           </MenuItem>,
@@ -547,6 +550,20 @@ const AppShell = () => {
               </Typography>
             </Box>
           </Stack>
+
+          {canSwitchViews && (
+            <Button
+              variant="outlined"
+              color="primary"
+              fullWidth
+              startIcon={isEmployeeView ? <AdminPanelSettingsIcon /> : <BadgeIcon />}
+              onClick={handleToggleViewMode}
+              size="small"
+              sx={{ mb: 1 }}
+            >
+              {isEmployeeView ? "Switch to Admin View" : "Switch to Employee View"}
+            </Button>
+          )}
 
           <Button
             variant="outlined"

@@ -33,7 +33,10 @@ import {
   alpha,
   useTheme,
   MenuItem,
+  Checkbox,
+  FormGroup,
 } from '@mui/material'
+import type { UserRole } from '../types/auth.types'
 import PersonIcon from '@mui/icons-material/Person'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import EventNoteIcon from '@mui/icons-material/EventNote'
@@ -148,6 +151,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
   const [managerId, setManagerId] = useState<string>('')
   const [secondaryManagerId, setSecondaryManagerId] = useState<string>('')
   const [companyEmail, setCompanyEmail] = useState<string>('')
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['EMPLOYEE'])
   const [emailError, setEmailError] = useState<string>('')
   const [emailConfirmOpen, setEmailConfirmOpen] = useState<boolean>(false)
   const [isActive, setIsActive] = useState<boolean>(true)
@@ -205,6 +209,11 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
   useEffect(() => {
     if (employee) {
       setCompanyEmail(employee.user?.email || '')
+      const initialRoles: UserRole[] =
+        employee.user?.roles && employee.user.roles.length > 0
+          ? employee.user.roles
+          : (employee.user?.role ? [employee.user.role] : ['EMPLOYEE'])
+      setSelectedRoles(initialRoles)
       setEmailError('')
       setFirstName(employee.firstName || '')
       setMiddleName(employee.middleName || '')
@@ -353,6 +362,20 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     isLocalAuth &&
     companyEmail.trim().toLowerCase() !== (employee?.user?.email || '').trim().toLowerCase()
 
+  const handleRoleToggle = (targetRole: UserRole) => {
+    setSelectedRoles((prev) => {
+      if (prev.includes(targetRole)) {
+        if (prev.length === 1) {
+          toast.error("An employee must have at least one role");
+          return prev;
+        }
+        return prev.filter((r) => r !== targetRole);
+      } else {
+        return [...prev, targetRole];
+      }
+    });
+  };
+
   // ─── Save Profile Edits ───
   const handleSaveProfile = () => {
     if (profileSaving) return
@@ -363,6 +386,10 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
     }
     if (!companyEmail.trim()) {
       setEmailError('Company email is required')
+      return
+    }
+    if (!selectedRoles || selectedRoles.length === 0) {
+      toast.error('An employee must have at least one role')
       return
     }
     if (!designationId) {
@@ -400,6 +427,28 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
           const msg =
             err?.response?.data?.message || err?.message || 'Failed to update company email'
           setEmailError(msg)
+          setProfileSaving(false)
+          toast.error(msg)
+          return
+        }
+      }
+
+      // If roles changed, call userApi.update with new roles
+      const initialRoles: UserRole[] =
+        employee.user?.roles && employee.user.roles.length > 0
+          ? employee.user.roles
+          : (employee.user?.role ? [employee.user.role] : ['EMPLOYEE'])
+
+      const hasRolesChanged =
+        selectedRoles.length !== initialRoles.length ||
+        !selectedRoles.every((r) => initialRoles.includes(r))
+
+      if (hasRolesChanged && employee.userId) {
+        try {
+          await userApi.update(employee.userId, { roles: selectedRoles })
+        } catch (err: any) {
+          const msg =
+            err?.response?.data?.message || err?.message || 'Failed to update user roles'
           setProfileSaving(false)
           toast.error(msg)
           return
@@ -459,6 +508,8 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
           ...employee.user,
           email: hasEmailChanged ? normalizedEmail : (employee.user?.email || ''),
           personalEmail: personalEmail.trim() || null,
+          roles: selectedRoles,
+          role: selectedRoles[0] || 'EMPLOYEE',
         },
         isActive,
         isProbation,
@@ -627,6 +678,16 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                       sx={{ height: 22, fontWeight: 600 }}
                     />
                   )}
+                  {selectedRoles.map((r) => (
+                    <Chip
+                      key={r}
+                      label={r === 'COMPANY_ADMIN' ? 'Admin' : r === 'HR' ? 'HR' : 'Employee'}
+                      size="small"
+                      color={r === 'COMPANY_ADMIN' ? 'secondary' : r === 'HR' ? 'info' : 'primary'}
+                      variant="filled"
+                      sx={{ height: 22, fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                  ))}
                 </Box>
                 <Typography variant="caption" color="text.secondary">
                   {employee.user?.email} • {employee.designation?.name} •{' '}
@@ -696,6 +757,83 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                   required
                 />
               </Tooltip>
+
+              {/* Assigned System Roles */}
+              <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.02) }}>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  Assigned System Roles *
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  Configure access permissions. Users can hold multiple roles simultaneously (e.g. Employee + Company Admin).
+                </Typography>
+                <FormGroup row sx={{ gap: { xs: 1.5, sm: 3 } }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedRoles.includes('EMPLOYEE')}
+                        onChange={() => handleRoleToggle('EMPLOYEE')}
+                        color="primary"
+                        disabled={profileSaving}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          Employee
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Check-in & leave portal
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedRoles.includes('HR')}
+                        onChange={() => handleRoleToggle('HR')}
+                        color="primary"
+                        disabled={profileSaving}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          HR Manager
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Attendance & leave admin
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={selectedRoles.includes('COMPANY_ADMIN')}
+                        onChange={() => handleRoleToggle('COMPANY_ADMIN')}
+                        color="primary"
+                        disabled={profileSaving}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          Company Administrator
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Full organization control
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </FormGroup>
+                {selectedRoles.length === 0 && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                    At least one role must be selected.
+                  </Typography>
+                )}
+              </Box>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
@@ -1338,7 +1476,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                         const statusColor =
                           req.status === 'APPROVED'
                             ? 'success'
-                            : req.status === 'PENDING'
+                            : (req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR')
                             ? 'warning'
                             : req.status === 'REJECTED'
                             ? 'error'
@@ -1388,7 +1526,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                                       color="primary"
                                       onClick={() => setSelectedRequestForBreakdown(req)}
                                     >
-                                      {req.status === 'PENDING' ? (
+                                      {(req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR') ? (
                                         <TuneIcon fontSize="small" />
                                       ) : (
                                         <VisibilityIcon fontSize="small" />
@@ -1396,7 +1534,7 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
                                     </IconButton>
                                   </Tooltip>
                                 )}
-                                {req.status === 'PENDING' && (
+                                {(req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR') && (
                                   <>
                                     <Tooltip title={isMultiDay ? "Approve All Days" : "Approve Leave"}>
                                       <IconButton

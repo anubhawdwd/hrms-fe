@@ -642,11 +642,11 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
                         borderRadius: '12px',
                         border: '1px solid',
                         borderColor:
-                          req.status === 'PENDING'
+                          (req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR')
                             ? alpha(theme.palette.warning.main, 0.3)
                             : 'divider',
                         bgcolor:
-                          req.status === 'PENDING'
+                          (req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR')
                             ? alpha(theme.palette.warning.main, 0.02)
                             : 'background.paper',
                         transition: 'all 0.15s',
@@ -760,7 +760,7 @@ export const AdminEmployeeLeaveProfileModal: React.FC<
                           )}
 
                           {/* Pending Actions */}
-                          {req.status === 'PENDING' && (
+                          {(req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR') && (
                             <>
                               <Button
                                 size="small"

@@ -1,3 +1,5 @@
+export type LeaveApprovalWorkflow = 'DIRECT_TO_HR' | 'TWO_STEP'
+
 // src/types/organization.types.ts
 export interface Department {
   id: string
@@ -73,6 +75,7 @@ export interface WorkingHoursConfig {
   graceMinutes: number
   workWeekDays?: number
   sandwichRuleEnabled?: boolean
+  leaveApprovalWorkflow?: LeaveApprovalWorkflow
 }
 
 export interface UpdateWorkingHoursPayload {
@@ -82,4 +85,5 @@ export interface UpdateWorkingHoursPayload {
   graceMinutes?: number
   workWeekDays?: number
   sandwichRuleEnabled?: boolean
+  leaveApprovalWorkflow?: LeaveApprovalWorkflow
 }

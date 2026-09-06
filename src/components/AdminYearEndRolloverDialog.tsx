@@ -80,8 +80,8 @@ export const AdminYearEndRolloverDialog = ({ open, onClose, onSuccess }: Props) 
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ py: 2.5 }}>
-        <Stack spacing={2.5}>
+      <DialogContent sx={{ px: 3, pt: '24px !important', pb: 2.5 }}>
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
           <Alert severity="warning" icon={<WarningAmberIcon />} sx={{ borderRadius: 1.5 }}>
             <Typography variant="body2" fontWeight={600} gutterBottom>
               Important Process Information:

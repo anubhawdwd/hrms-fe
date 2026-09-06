@@ -1,6 +1,7 @@
 import SummarizeIcon from '@mui/icons-material/Summarize'
 // src/pages/AdminDashboard.tsx
-import { Box, Typography, Paper, Grid, Button } from '@mui/material'
+import { useEffect, useState } from 'react'
+import { Box, Typography, Paper, Grid, Button, Chip } from '@mui/material'
 import PeopleIcon from '@mui/icons-material/People'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
@@ -12,9 +13,32 @@ import CelebrationIcon from '@mui/icons-material/Celebration'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
+import { leaveApi } from '../api/leave.api'
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
+  const [pendingLeaveCount, setPendingLeaveCount] = useState<number>(0)
+
+  useEffect(() => {
+    let isMounted = true
+    const fetchPendingCount = async () => {
+      try {
+        const requests = await leaveApi.getPendingRequests()
+        if (isMounted && Array.isArray(requests)) {
+          const actionableCount = requests.filter(
+            (r) => r.status === 'PENDING_HR' || r.status === 'PENDING'
+          ).length
+          setPendingLeaveCount(actionableCount)
+        }
+      } catch (err) {
+        console.error('Failed to fetch pending leave count for admin dashboard badge', err)
+      }
+    }
+    fetchPendingCount()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const cards = [
     {
@@ -59,13 +83,13 @@ const AdminDashboard = () => {
       path: '/admin/workplace-settings',
       icon: <BusinessIcon color="primary" sx={{ fontSize: 36 }} />,
     },
-        {
+    {
       title: 'Reports Dashboard',
       subtitle: 'Generate, preview, and export company-scoped employee directories and dynamic leave reports',
       path: '/admin/reports',
       icon: <SummarizeIcon color="primary" sx={{ fontSize: 36 }} />,
     },
-{
+    {
       title: 'Holidays',
       subtitle: 'Manage company annual holiday calendar and non-working days',
       path: '/admin/holidays',
@@ -81,50 +105,72 @@ const AdminDashboard = () => {
       />
 
       <Grid container spacing={3}>
-        {cards.map((card) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={card.path}>
-            <Paper
-              elevation={2}
-              sx={{
-                p: 3,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                borderRadius: 2,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  elevation: 4,
-                  transform: 'translateY(-2px)',
-                  boxShadow: 4,
-                },
-              }}
-            >
-              <Box>
-                <Box sx={{ mb: 2 }}>{card.icon}</Box>
-                <Typography variant="h6" gutterBottom fontWeight={600}>
-                  {card.title}
-                </Typography>
-                <Typography
-                  color="text.secondary"
-                  variant="body2"
-                  mb={2}
-                >
-                  {card.subtitle}
-                </Typography>
-              </Box>
-              <Button
-                variant="outlined"
-                size="small"
-                endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate(card.path)}
-                sx={{ alignSelf: 'flex-start' }}
+        {cards.map((card) => {
+          const isLeaveCard = card.path === '/admin/leave-dashboard'
+          const showBadge = isLeaveCard && pendingLeaveCount > 0
+
+          return (
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={card.path}>
+              <Paper
+                elevation={2}
+                sx={{
+                  p: 3,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    elevation: 4,
+                    transform: 'translateY(-2px)',
+                    boxShadow: 4,
+                  },
+                }}
               >
-                Open
-              </Button>
-            </Paper>
-          </Grid>
-        ))}
+                <Box>
+                  <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    {card.icon}
+                    {showBadge && (
+                      <Chip
+                        label={pendingLeaveCount}
+                        size="small"
+                        color="error"
+                        sx={{
+                          fontWeight: 700,
+                          height: 22,
+                          minWidth: 22,
+                          fontSize: '0.75rem',
+                          borderRadius: '11px',
+                          px: 0.5,
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="h6" gutterBottom fontWeight={600}>
+                    {card.title}
+                  </Typography>
+                  <Typography
+                    color="text.secondary"
+                    variant="body2"
+                    mb={2}
+                  >
+                    {card.subtitle}
+                  </Typography>
+                </Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  endIcon={<ArrowForwardIcon />}
+                  onClick={() => navigate(card.path)}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Open
+                </Button>
+              </Paper>
+            </Grid>
+          )
+        })}
       </Grid>
     </Box>
   )

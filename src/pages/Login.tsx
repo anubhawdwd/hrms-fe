@@ -115,7 +115,7 @@ const LoginPage = () => {
         const me = await authApi.me()
         dispatch(setUser(me))
         toast.success('Login successful')
-        navigate(getDashboardRoute(me.role), { replace: true })
+        navigate(getDashboardRoute(me.roles && me.roles.length > 0 ? me.roles : me.role), { replace: true })
       } catch (err: any) {
         const errorMsg =
           err?.response?.data?.message || err?.message || 'Authentication failed'

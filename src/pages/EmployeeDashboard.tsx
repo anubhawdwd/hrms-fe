@@ -51,6 +51,12 @@ import EmptyState from '../components/EmptyState'
 import ApplyLeaveModal from '../components/ApplyLeaveModal'
 import { EmployeeMonthlyOverviewModal } from '../components/EmployeeMonthlyOverviewModal'
 import LeaveRequestList from '../components/LeaveRequestList'
+import { managerApi } from '../api/manager.api'
+import type { ReporteeSummary } from '../types/manager.types'
+import { ManagerTeamLeaveSection } from '../components/ManagerTeamLeaveSection'
+import { ManagerTeamAttendanceSection } from '../components/ManagerTeamAttendanceSection'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
 
 /* ─── Section Header Component ─── */
 const SectionHeader = ({
@@ -269,6 +275,33 @@ const EmployeeDashboard = () => {
 
   // Leave modal
   const [leaveModalOpen, setLeaveModalOpen] = useState(false)
+  const [reportees, setReportees] = useState<ReporteeSummary[]>([])
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0)
+  const [activeMainTab, setActiveMainTab] = useState<'workspace' | 'team'>('workspace')
+  const [activeTeamTab, setActiveTeamTab] = useState<'leaves' | 'attendance'>('leaves')
+
+  const fetchPendingApprovalsCount = useCallback(async () => {
+    try {
+      const pendingLeaves = await managerApi.getReporteeLeaves({ status: 'PENDING_MANAGER' as any })
+      setPendingApprovalsCount(pendingLeaves.length)
+    } catch {
+      setPendingApprovalsCount(0)
+    }
+  }, [])
+
+  useEffect(() => {
+    managerApi
+      .getReportees()
+      .then((data) => {
+        setReportees(data)
+        if (data.length > 0) {
+          fetchPendingApprovalsCount()
+        }
+      })
+      .catch(() => {
+        setReportees([])
+      })
+  }, [fetchPendingApprovalsCount])
   const [monthlyOverviewOpen, setMonthlyOverviewOpen] = useState(false)
 
   // Configurable display workplace working hours & scheduled presence
@@ -470,7 +503,7 @@ const EmployeeDashboard = () => {
     const dateStr = dayData.date?.slice(0, 10)
     const leaveReq = requests.find(
       (r) =>
-        (r.status === 'APPROVED' || r.status === 'PENDING') &&
+        (r.status === 'APPROVED' || r.status === 'PENDING' || r.status === 'PENDING_MANAGER' || r.status === 'PENDING_HR') &&
         dateStr >= r.fromDate.slice(0, 10) &&
         dateStr <= r.toDate.slice(0, 10)
     )
@@ -518,7 +551,99 @@ const EmployeeDashboard = () => {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      
+      {/* ─── Manager "My Team" Top Tab Switcher ─── */}
+      {reportees.length > 0 && (
+        <Box sx={{ mb: 3.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs
+            value={activeMainTab}
+            onChange={(_, val) => setActiveMainTab(val)}
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: '1rem',
+                minHeight: 48,
+                px: 2.5,
+              },
+            }}
+          >
+            <Tab
+              value="workspace"
+              label="My Workspace"
+              icon={<PersonIcon fontSize="small" />}
+              iconPosition="start"
+            />
+            <Tab
+              value="team"
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <span>{`My Team (${reportees.length})`}</span>
+                  {pendingApprovalsCount > 0 && (
+                    <Chip
+                      label={pendingApprovalsCount}
+                      size="small"
+                      color="error"
+                      sx={{
+                        height: 20,
+                        minWidth: 20,
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        borderRadius: '10px',
+                        px: 0.5,
+                      }}
+                    />
+                  )}
+                </Box>
+              }
+              icon={<SupervisorAccountIcon fontSize="small" />}
+              iconPosition="start"
+            />
+          </Tabs>
+        </Box>
+      )}
+
+      {activeMainTab === 'team' ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Team Sub-Tabs */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Tabs
+              value={activeTeamTab}
+              onChange={(_, val) => setActiveTeamTab(val)}
+              textColor="secondary"
+              indicatorColor="secondary"
+              sx={{
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  minHeight: 36,
+                },
+              }}
+            >
+              <Tab
+                value="leaves"
+                label="Team Leave Requests"
+                icon={<BeachAccessIcon fontSize="small" />}
+                iconPosition="start"
+              />
+              <Tab
+                value="attendance"
+                label="Team Attendance"
+                icon={<CalendarMonthIcon fontSize="small" />}
+                iconPosition="start"
+              />
+            </Tabs>
+          </Box>
+
+          {activeTeamTab === 'leaves' ? (
+            <ManagerTeamLeaveSection reportees={reportees} onLeaveActionSuccess={fetchPendingApprovalsCount} />
+          ) : (
+            <ManagerTeamAttendanceSection reportees={reportees} />
+          )}
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
         {/* ═══ ATTENDANCE CARD ═══ */}
         <Grid size={{ xs: 12, lg: 7 }}>
           <DashboardCard
@@ -1683,6 +1808,7 @@ const EmployeeDashboard = () => {
         </Grid>
       </Grid>
 
+      )}
       {/* ─── Apply Leave Modal ─── */}
       <EmployeeMonthlyOverviewModal
         open={monthlyOverviewOpen}

@@ -26,6 +26,7 @@ export interface LoginResponse {
     id: string
     email: string
     role?: UserRole
+    roles?: UserRole[]
     companyId: string
     companyName?: string
     geoFencingEnabled?: boolean
@@ -37,7 +38,8 @@ export interface LoginResponse {
 export interface MeResponse {
   id: string
   email: string
-  role: UserRole
+  role?: UserRole
+  roles?: UserRole[]
   companyId: string
   companyName?: string
   geoFencingEnabled?: boolean

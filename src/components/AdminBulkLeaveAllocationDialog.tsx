@@ -161,8 +161,8 @@ export const AdminBulkLeaveAllocationDialog = ({
       </DialogTitle>
 
       <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ py: 2.5 }}>
-          <Stack spacing={2.5}>
+        <DialogContent sx={{ px: 3, pt: '24px !important', pb: 2.5 }}>
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
             <Alert severity="info" sx={{ borderRadius: 1.5 }}>
               Existing <strong>carried-forward balances</strong> from year-end rollover will be preserved.
               Remaining balances will be automatically recalculated.

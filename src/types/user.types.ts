@@ -6,7 +6,8 @@ export interface User {
   email: string
   companyId?: string
   authProvider: AuthProvider
-  role: UserRole
+  role?: UserRole
+  roles?: UserRole[]
   isActive: boolean
   mustChangePassword?: boolean
   createdAt?: string
@@ -26,10 +27,12 @@ export interface CreateUserPayload {
   email: string
   authProvider: AuthProvider
   role?: UserRole
+  roles?: UserRole[]
 }
 
 export interface UpdateUserPayload {
   email?: string
   authProvider?: AuthProvider
   role?: UserRole
+  roles?: UserRole[]
 }

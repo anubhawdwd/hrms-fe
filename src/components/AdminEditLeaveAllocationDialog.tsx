@@ -182,8 +182,8 @@ export const AdminEditLeaveAllocationDialog: React.FC<Props> = ({
       </DialogTitle>
 
       <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ py: 2 }}>
-          <Stack spacing={2.5}>
+        <DialogContent sx={{ px: 3, pt: '24px !important', pb: 2.5 }}>
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
             {/* Leave Type Select */}
             <TextField
               select

@@ -142,7 +142,7 @@ const ChangePasswordModal = ({ open = false, onClose }: Props) => {
           </Box>
         </DialogTitle>
 
-        <DialogContent sx={{ px: 1, py: 2 }}>
+        <DialogContent sx={{ px: 2, pt: '24px !important', pb: 2.5 }}>
           {isMandatory ? (
             <Alert severity="warning" sx={{ mb: 2.5 }}>
               You are using a temporary password. Please set a new password to continue using HRMS.

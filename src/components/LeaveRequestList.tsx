@@ -105,7 +105,7 @@ const LeaveRequestList = ({ requests, loading, onCancel }: Props) => {
               p: 2,
               borderRadius: '12px',
               bgcolor:
-                req.status === 'PENDING'
+                (req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR')
                   ? alpha(theme.palette.warning.main, 0.03)
                   : 'transparent',
               border: '1px solid',
@@ -182,7 +182,7 @@ const LeaveRequestList = ({ requests, loading, onCancel }: Props) => {
             </Box>
 
             {/* Cancel button */}
-            {req.status === 'PENDING' && onCancel && (
+            {(req.status === 'PENDING' || req.status === 'PENDING_MANAGER' || req.status === 'PENDING_HR') && onCancel && (
               <Tooltip title="Cancel request">
                 <IconButton
                   size="small"

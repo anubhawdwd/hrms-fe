@@ -7,6 +7,8 @@ export type LeaveDurationType =
 
 export type LeaveRequestStatus =
   | 'PENDING'
+  | 'PENDING_MANAGER'
+  | 'PENDING_HR'
   | 'APPROVED'
   | 'REJECTED'
   | 'CANCELLED'

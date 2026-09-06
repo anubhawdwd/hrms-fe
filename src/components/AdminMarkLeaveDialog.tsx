@@ -117,8 +117,8 @@ export const AdminMarkLeaveDialog = ({
       </DialogTitle>
 
       <form onSubmit={handleSubmit}>
-        <DialogContent sx={{ py: 2.5 }}>
-          <Stack spacing={2.5}>
+        <DialogContent sx={{ px: 3, pt: '24px !important', pb: 2.5 }}>
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
             <Alert severity="info" sx={{ borderRadius: 1.5 }}>
               This will directly create an <strong>APPROVED</strong> leave entry, deduct the appropriate quota balance, and record an HR audit trail.
             </Alert>

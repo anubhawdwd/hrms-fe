@@ -1,8 +1,8 @@
 // src/pages/NotFound.tsx
-import { Box, Typography, Button } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
-import { useUser } from '../hooks/useAuth'
-import { getDashboardRoute } from '../utils/dashboard'
+import { Box, Typography, Button } from "@mui/material"
+import { useNavigate } from "react-router-dom"
+import { useUser } from "../hooks/useAuth"
+import { getDashboardRoute } from "../utils/dashboard"
 
 const NotFound = () => {
   const navigate = useNavigate()
@@ -11,12 +11,12 @@ const NotFound = () => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
         px: 2,
       }}
     >
@@ -31,7 +31,7 @@ const NotFound = () => {
       </Typography>
       <Button
         variant="contained"
-        onClick={() => navigate(getDashboardRoute(user?.role))}
+        onClick={() => navigate(getDashboardRoute(user?.roles && user.roles.length > 0 ? user.roles : user?.role))}
         size="large"
       >
         Back to Application Home

@@ -16,7 +16,9 @@ import {
   Stack,
   Tabs,
   Tab,
+  alpha,
 } from '@mui/material'
+import type { LeaveApprovalWorkflow } from '../types/organization.types'
 import SaveIcon from '@mui/icons-material/Save'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
@@ -58,6 +60,7 @@ const AdminWorkplaceSettings = () => {
   // ─── Leave & Work Week Rules State ───
   const [workWeekDays, setWorkWeekDays] = useState<number>(5)
   const [sandwichRuleEnabled, setSandwichRuleEnabled] = useState<boolean>(false)
+  const [leaveApprovalWorkflow, setLeaveApprovalWorkflow] = useState<LeaveApprovalWorkflow>("DIRECT_TO_HR")
   const [savingLeaveRules, setSavingLeaveRules] = useState<boolean>(false)
 
   // ─── Geo-Fencing State ───
@@ -94,6 +97,7 @@ const AdminWorkplaceSettings = () => {
         setGraceMinutes(hoursData.graceMinutes ?? 10)
         setWorkWeekDays(hoursData.workWeekDays ?? 5)
         setSandwichRuleEnabled(Boolean(hoursData.sandwichRuleEnabled))
+        setLeaveApprovalWorkflow(hoursData.leaveApprovalWorkflow || "DIRECT_TO_HR")
       }
     } catch {
       toast.error('Failed to load organization settings')
@@ -113,6 +117,7 @@ const AdminWorkplaceSettings = () => {
       await organizationApi.updateWorkingHoursConfig({
         workWeekDays,
         sandwichRuleEnabled,
+        leaveApprovalWorkflow,
       })
       toast.success('Leave & work week rules updated successfully')
     } catch (err: any) {
@@ -292,7 +297,7 @@ const AdminWorkplaceSettings = () => {
           }}
         >
           <Tab icon={<AccessTimeIcon fontSize="small" />} iconPosition="start" label="Working Hours & Breaks" />
-          <Tab icon={<DateRangeIcon fontSize="small" />} iconPosition="start" label="Work Week & Sandwich Policy" />
+          <Tab icon={<DateRangeIcon fontSize="small" />} iconPosition="start" label="Leave & Attendance Policies" />
           <Tab icon={<LocationOnIcon fontSize="small" />} iconPosition="start" label="Office Geo-Fencing" />
         </Tabs>
       </Paper>
@@ -590,6 +595,102 @@ const AdminWorkplaceSettings = () => {
                       <strong>Sandwich Rule Active:</strong> HR can still remove or exempt specific weekend bridge days on a per-request basis in the Leave Approvals dashboard.
                     </Alert>
                   )}
+                </Paper>
+              </Grid>
+              {/* 3. Leave Approval Workflow Policy */}
+              <Grid size={{ xs: 12 }}>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2.5,
+                    borderRadius: '10px',
+                    bgcolor: 'background.default',
+                  }}
+                >
+                  <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                    3. Leave Approval Workflow Policy
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
+                    Configure whether leave applications require primary/secondary manager review prior to HR authorization.
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Paper
+                        variant="outlined"
+                        onClick={() => setLeaveApprovalWorkflow("DIRECT_TO_HR")}
+                        sx={{
+                          p: 2,
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          borderColor: leaveApprovalWorkflow === "DIRECT_TO_HR" ? 'primary.main' : 'divider',
+                          bgcolor: leaveApprovalWorkflow === "DIRECT_TO_HR" ? alpha('#2563eb', 0.04) : 'background.paper',
+                          borderWidth: leaveApprovalWorkflow === "DIRECT_TO_HR" ? 2 : 1,
+                          transition: 'all 0.15s ease',
+                          '&:hover': { borderColor: 'primary.main' },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Chip
+                            label="Direct to HR"
+                            size="small"
+                            color={leaveApprovalWorkflow === "DIRECT_TO_HR" ? 'primary' : 'default'}
+                            sx={{ fontWeight: 700, height: 20, fontSize: '0.6875rem' }}
+                          />
+                          <Typography variant="body2" fontWeight={700}>
+                            Single-Step Approval
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          All leave applications route directly to HR / Company Admin for review and final balance deduction.
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Paper
+                        variant="outlined"
+                        onClick={() => setLeaveApprovalWorkflow("TWO_STEP")}
+                        sx={{
+                          p: 2,
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          borderColor: leaveApprovalWorkflow === "TWO_STEP" ? 'secondary.main' : 'divider',
+                          bgcolor: leaveApprovalWorkflow === "TWO_STEP" ? alpha('#9333ea', 0.04) : 'background.paper',
+                          borderWidth: leaveApprovalWorkflow === "TWO_STEP" ? 2 : 1,
+                          transition: 'all 0.15s ease',
+                          '&:hover': { borderColor: 'secondary.main' },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Chip
+                            label="2-Step Workflow"
+                            size="small"
+                            color={leaveApprovalWorkflow === "TWO_STEP" ? 'secondary' : 'default'}
+                            sx={{ fontWeight: 700, height: 20, fontSize: '0.6875rem' }}
+                          />
+                          <Typography variant="body2" fontWeight={700}>
+                            Manager → HR Approval
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Employees with an assigned manager require Manager review first (Stage 1), then HR final approval (Stage 2).
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                  <Alert
+                    severity={leaveApprovalWorkflow === "TWO_STEP" ? 'info' : 'success'}
+                    sx={{ mt: 2, borderRadius: '8px', fontSize: '0.8125rem' }}
+                  >
+                    {leaveApprovalWorkflow === "TWO_STEP" ? (
+                      <>
+                        <strong>2-Step Approval Active:</strong> Leave requests from employees with an assigned reporting manager will start in <code>PENDING_MANAGER</code> status. Once approved by the manager, requests advance to <code>PENDING_HR</code> for HR completion. If an employee has no manager assigned, the request automatically routes directly to HR.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Single-Step Active:</strong> All employee leave requests route directly to HR / Company Admin without requiring intermediate manager sign-off.
+                      </>
+                    )}
+                  </Alert>
                 </Paper>
               </Grid>
             </Grid>

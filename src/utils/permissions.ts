@@ -61,23 +61,31 @@ const ROLE_PERMISSION_MAP: Record<UserRole, Permission[]> = {
 }
 
 /**
- * Returns permissions derived from user role.
+ * Returns aggregated permissions derived from user role(s).
  */
 export const getUserPermissions = (
-  role?: UserRole
+  rolesOrRole?: UserRole[] | UserRole
 ): Permission[] => {
-  if (!role) return []
-  return ROLE_PERMISSION_MAP[role] ?? []
+  if (!rolesOrRole) return []
+  const roles: UserRole[] = Array.isArray(rolesOrRole) ? rolesOrRole : [rolesOrRole]
+  const permissionSet = new Set<Permission>()
+  for (const role of roles) {
+    const rolePermissions = ROLE_PERMISSION_MAP[role] ?? []
+    for (const p of rolePermissions) {
+      permissionSet.add(p)
+    }
+  }
+  return Array.from(permissionSet)
 }
 
 /**
- * Check if user has a specific permission
+ * Check if user has a specific permission across all active roles.
  */
 export const hasPermission = (
-  role: UserRole | undefined,
+  rolesOrRole: UserRole[] | UserRole | undefined,
   permission: Permission
 ): boolean => {
-  if (!role) return false
-  const permissions = getUserPermissions(role)
+  if (!rolesOrRole) return false
+  const permissions = getUserPermissions(rolesOrRole)
   return permissions.includes(permission)
 }

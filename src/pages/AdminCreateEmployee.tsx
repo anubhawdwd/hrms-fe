@@ -18,6 +18,8 @@ import {
   Chip,
   FormControlLabel,
   Switch,
+  Checkbox,
+  FormGroup,
   Card,
   CardContent,
   Table,
@@ -168,6 +170,20 @@ const AdminCreateEmployee = () => {
     return existingEmployees.filter((e) => e.id !== selectedManagerId)
   }, [existingEmployees, selectedManagerId])
 
+  const handleRoleToggle = (targetRole: UserRole) => {
+    setRoles((prev) => {
+      if (prev.includes(targetRole)) {
+        if (prev.length === 1) {
+          toast.error("At least one role must be selected");
+          return prev;
+        }
+        return prev.filter((r) => r !== targetRole);
+      } else {
+        return [...prev, targetRole];
+      }
+    });
+  };
+
   // Step Validation logic
   const validateCurrentStep = (): boolean => {
     setSubmitError(null)
@@ -180,6 +196,10 @@ const AdminCreateEmployee = () => {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email.trim())) {
         setSubmitError('Please enter a valid email address')
+        return false
+      }
+      if (!roles || roles.length === 0) {
+        setSubmitError('At least one role must be selected')
         return false
       }
       if (authProvider === 'LOCAL' && password.trim() && password.trim().length < 6) {
@@ -262,6 +282,7 @@ const AdminCreateEmployee = () => {
       const payload: any = {
         email: email.trim().toLowerCase(),
         authProvider,
+        roles,
         role: roles[0] || 'EMPLOYEE',
         password: authProvider === 'LOCAL' && password.trim() ? password.trim() : undefined,
 
@@ -414,20 +435,79 @@ const AdminCreateEmployee = () => {
               </TextField>
             </Grid>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                select
-                label="Primary System Role"
-                value={roles[0] || 'EMPLOYEE'}
-                onChange={(e) => setRoles([e.target.value as UserRole])}
-                fullWidth
-                required
-                helperText="Access permissions level inside this organization"
-              >
-                <MenuItem value="EMPLOYEE">Employee (Standard Portal Access)</MenuItem>
-                <MenuItem value="HR">HR Manager (Employee, Attendance & Leave Admin)</MenuItem>
-                <MenuItem value="COMPANY_ADMIN">Company Administrator (Full Organization Control)</MenuItem>
-              </TextField>
+            <Grid size={{ xs: 12 }}>
+              <Box sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  Assigned System Roles *
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+                  Select all roles that apply. An employee can hold multiple roles simultaneously (e.g. Employee + Company Admin).
+                </Typography>
+                <FormGroup row sx={{ gap: { xs: 1.5, sm: 3 } }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={roles.includes('EMPLOYEE')}
+                        onChange={() => handleRoleToggle('EMPLOYEE')}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          Employee
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Standard portal access (check-in & leave requests)
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={roles.includes('HR')}
+                        onChange={() => handleRoleToggle('HR')}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          HR Manager
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Attendance & leave administration
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={roles.includes('COMPANY_ADMIN')}
+                        onChange={() => handleRoleToggle('COMPANY_ADMIN')}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          Company Administrator
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Full organization management & settings
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </FormGroup>
+                {roles.length === 0 && (
+                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                    At least one role must be selected.
+                  </Typography>
+                )}
+              </Box>
             </Grid>
 
             {authProvider === 'LOCAL' && (

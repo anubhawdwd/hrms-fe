@@ -208,8 +208,8 @@ export const ApplyLeaveModal: React.FC<Props> = ({ open, onClose, onSuccess }) =
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ px: 3, pt: 2 }}>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      <DialogContent sx={{ px: 3, pt: '24px !important', pb: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 0.5 }}>
           {/* Leave Type Selector */}
           <TextField
             select
