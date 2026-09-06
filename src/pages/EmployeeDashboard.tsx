@@ -43,6 +43,7 @@ import { useMyProfile } from '../hooks/useEmployee'
 import { useLeaveBalances, useMyLeaveRequests, useHolidays } from '../hooks/useLeave'
 import { useCheckIn, useCheckOut, useTodayAttendance } from '../hooks/useAttendance'
 import { useWeeklyAttendance } from '../hooks/useAttendance'
+import { useSocketSync } from '../context/SocketContext'
 import { organizationApi } from '../api/organization.api'
 import type { WorkingHoursConfig } from '../types/organization.types'
 import LoadingState from '../components/LoadingState'
@@ -322,6 +323,27 @@ const EmployeeDashboard = () => {
       })
       .catch(() => {})
   }, [])
+
+
+  useSocketSync('leave', () => {
+    fetchPendingApprovalsCount()
+    reloadRequests()
+    reloadBalances()
+  })
+
+  useSocketSync('attendance', () => {
+    loadAttendance()
+    loadWeekly()
+  })
+
+  useSocketSync('badges', () => {
+    fetchPendingApprovalsCount()
+    reloadRequests()
+  })
+
+  useSocketSync('holiday', () => {
+    loadWeekly()
+  })
 
   useEffect(() => {
     loadAttendance()

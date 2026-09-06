@@ -29,6 +29,7 @@ import CancelIcon from '@mui/icons-material/Cancel'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import EventNoteIcon from '@mui/icons-material/EventNote'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import toast from 'react-hot-toast'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
@@ -44,6 +45,7 @@ import type {
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import { AdminEmployeeLeaveProfileModal } from '../components/AdminEmployeeLeaveProfileModal'
+import { useSocketSync } from '../context/SocketContext'
 import { AdminLwpReportDialog } from '../components/AdminLwpReportDialog'
 import { AdminLeaveDayBreakdownDialog } from '../components/AdminLeaveDayBreakdownDialog'
 import EmployeeAutocomplete from '../components/EmployeeAutocomplete'
@@ -197,6 +199,14 @@ function formatDurationLabel(durationType: LeaveDurationType, durationValue?: nu
 /* ─── MAIN COMPONENT: ADMIN LEAVE DASHBOARD ─── */
 const AdminLeaveDashboard: React.FC = () => {
   const theme = useTheme()
+  const [nudgingId, setNudgingId] = useState<string | null>(null)
+
+  useSocketSync('leave', () => {
+    handleGlobalRefresh()
+  })
+  useSocketSync('badges', () => {
+    handleGlobalRefresh()
+  })
 
   // Section A: On Leave Today
   const [todayLeaves, setTodayLeaves] = useState<LeaveTodayEmployee[]>([])
@@ -298,8 +308,19 @@ const AdminLeaveDashboard: React.FC = () => {
     toast.success('Leave dashboard refreshed')
   }
 
-  /* ─── Actions: Approve / Reject ─── */
-  const handleApprove = async (requestId: string) => {
+  /* ─── Actions: Approve / Reject / Nudge ─── */
+  const handleNudgeManager = async (requestId: string) => {
+    setNudgingId(requestId)
+    try {
+      const res = await leaveApi.nudgeManager(requestId)
+      toast.success(res.message || 'Nudge notification sent to reporting manager')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to send nudge')
+    } finally {
+      setNudgingId(null)
+    }
+  }
+    const handleApprove = async (requestId: string) => {
     setActionInProgress((prev) => ({ ...prev, [requestId]: 'approve' }))
     try {
       await leaveApi.approve(requestId)
@@ -829,44 +850,76 @@ const AdminLeaveDashboard: React.FC = () => {
                         </Typography>
                       )}
 
-                      {/* Actions: Approve & Reject Buttons */}
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          size="small"
-                          fullWidth
-                          startIcon={
-                            isApproving ? (
-                              <CircularProgress size={14} color="inherit" />
-                            ) : (
-                              <CheckCircleIcon sx={{ fontSize: 16 }} />
-                            )
-                          }
-                          disabled={isProcessing}
-                          onClick={() => handleApprove(req.id)}
-                          sx={{ borderRadius: '8px', fontWeight: 700 }}
-                        >
-                          {isApproving ? 'Processing...' : req.status === 'PENDING_MANAGER' ? 'Approve (Manager)' : 'Approve'}
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          color="error"
-                          size="small"
-                          fullWidth
-                          startIcon={
-                            isRejecting ? (
-                              <CircularProgress size={14} color="inherit" />
-                            ) : (
-                              <DoNotDisturbIcon sx={{ fontSize: 16 }} />
-                            )
-                          }
-                          disabled={isProcessing}
-                          onClick={() => handleReject(req.id)}
-                          sx={{ borderRadius: '8px', fontWeight: 600 }}
-                        >
-                          {isRejecting ? 'Rejecting...' : 'Reject'}
-                        </Button>
+                      {/* Actions: Nudge, Approve & Reject Buttons */}
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
+                        {req.status === 'PENDING_MANAGER' && (
+                          <Button
+                            variant="contained"
+                            color="warning"
+                            size="small"
+                            fullWidth
+                            startIcon={
+                              nudgingId === req.id ? (
+                                <CircularProgress size={14} color="inherit" />
+                              ) : (
+                                <NotificationsActiveIcon sx={{ fontSize: 16 }} />
+                              )
+                            }
+                            disabled={isProcessing || nudgingId === req.id}
+                            onClick={() => handleNudgeManager(req.id)}
+                            sx={{
+                              borderRadius: '8px',
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              fontSize: '0.8125rem',
+                              py: 0.75,
+                              bgcolor: 'warning.main',
+                              color: 'warning.contrastText',
+                              boxShadow: '0 2px 6px rgba(237, 108, 2, 0.25)',
+                              '&:hover': { bgcolor: 'warning.dark' },
+                            }}
+                          >
+                            {nudgingId === req.id ? 'Sending Nudge...' : 'Nudge Reporting Manager'}
+                          </Button>
+                        )}
+                        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            fullWidth
+                            startIcon={
+                              isApproving ? (
+                                <CircularProgress size={14} color="inherit" />
+                              ) : (
+                                <CheckCircleIcon sx={{ fontSize: 16 }} />
+                              )
+                            }
+                            disabled={isProcessing}
+                            onClick={() => handleApprove(req.id)}
+                            sx={{ borderRadius: '8px', fontWeight: 700, textTransform: 'none' }}
+                          >
+                            {isApproving ? 'Processing...' : req.status === 'PENDING_MANAGER' ? 'Approve (Override)' : 'Approve'}
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            fullWidth
+                            startIcon={
+                              isRejecting ? (
+                                <CircularProgress size={14} color="inherit" />
+                              ) : (
+                                <DoNotDisturbIcon sx={{ fontSize: 16 }} />
+                              )
+                            }
+                            disabled={isProcessing}
+                            onClick={() => handleReject(req.id)}
+                            sx={{ borderRadius: '8px', fontWeight: 600, textTransform: 'none' }}
+                          >
+                            {isRejecting ? 'Rejecting...' : 'Reject'}
+                          </Button>
+                        </Box>
                       </Box>
                     </Paper>
                   )

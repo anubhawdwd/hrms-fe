@@ -1,6 +1,6 @@
 import SummarizeIcon from '@mui/icons-material/Summarize'
 // src/pages/AdminDashboard.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Box, Typography, Paper, Grid, Button, Chip } from '@mui/material'
 import PeopleIcon from '@mui/icons-material/People'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
@@ -13,32 +13,33 @@ import CelebrationIcon from '@mui/icons-material/Celebration'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader'
+import { useSocketSync } from '../context/SocketContext'
 import { leaveApi } from '../api/leave.api'
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
   const [pendingLeaveCount, setPendingLeaveCount] = useState<number>(0)
 
-  useEffect(() => {
-    let isMounted = true
-    const fetchPendingCount = async () => {
-      try {
-        const requests = await leaveApi.getPendingRequests()
-        if (isMounted && Array.isArray(requests)) {
-          const actionableCount = requests.filter(
-            (r) => r.status === 'PENDING_HR' || r.status === 'PENDING'
-          ).length
-          setPendingLeaveCount(actionableCount)
-        }
-      } catch (err) {
-        console.error('Failed to fetch pending leave count for admin dashboard badge', err)
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const requests = await leaveApi.getPendingRequests()
+      if (Array.isArray(requests)) {
+        const actionableCount = requests.filter(
+          (r) => r.status === 'PENDING_HR' || r.status === 'PENDING'
+        ).length
+        setPendingLeaveCount(actionableCount)
       }
-    }
-    fetchPendingCount()
-    return () => {
-      isMounted = false
+    } catch (err) {
+      console.error('Failed to fetch pending leave count for admin dashboard badge', err)
     }
   }, [])
+
+  useEffect(() => {
+    fetchPendingCount()
+  }, [fetchPendingCount])
+
+  useSocketSync('leave', fetchPendingCount)
+  useSocketSync('badges', fetchPendingCount)
 
   const cards = [
     {

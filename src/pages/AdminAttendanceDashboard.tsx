@@ -52,6 +52,7 @@ import type {
 } from '../types/attendance.types'
 import type { LeaveRequestWithEmployee } from '../types/leave.types'
 import PageHeader from '../components/PageHeader'
+import { useSocketSync } from '../context/SocketContext'
 import LoadingState from '../components/LoadingState'
 import { DaySessionDetail, STATUS_CONFIG } from '../components/DaySessionDetail'
 
@@ -939,6 +940,20 @@ export const AdminAttendanceDashboard: React.FC = () => {
       setSelectedMonth(currentMonthStr)
     }
   }
+
+
+  useSocketSync('attendance', () => {
+    fetchSelectedMonth(selectedMonth, true)
+  })
+
+  useSocketSync('badges', () => {
+    fetchPendingLeaveRequests()
+  })
+
+  useSocketSync('leave', () => {
+    fetchPendingLeaveRequests()
+    fetchSelectedMonth(selectedMonth, true)
+  })
 
   const handleRefresh = () => {
     fetchSelectedMonth(selectedMonth, true)

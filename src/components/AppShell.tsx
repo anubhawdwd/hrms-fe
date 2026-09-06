@@ -40,6 +40,7 @@ import { clearAuth } from "../store/auth.slice"
 import { useUser } from "../hooks/useAuth"
 import { getDashboardRoute } from "../utils/dashboard"
 import type { UserRole } from "../types/auth.types"
+import { NotificationBell } from "./NotificationBell"
 import ChangePasswordModal from "./ChangePasswordModal"
 
 interface NavItem {
@@ -314,6 +315,8 @@ const AppShell = () => {
 
           {/* Right: User Profile Menu & Mobile Hamburger */}
           <Stack direction="row" spacing={1} alignItems="center">
+            <NotificationBell />
+
             {/* User Profile Pill Trigger */}
             <Button
               onClick={handleUserMenuOpen}

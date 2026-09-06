@@ -321,6 +321,13 @@ export const leaveApi = {
     await apiClient.delete(`/api/leave/holidays/${id}`)
   },
   // LWP / Unpaid Leave Report
+  nudgeManager: async (requestId: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await apiClient.post<{ success: boolean; message: string }>(
+      `/api/leave/requests/${requestId}/nudge`
+    )
+    return data
+  },
+
   getLwpReport: async (year?: number, month?: number) => {
     const res = await apiClient.get('/api/leave/reports/lwp', {
       params: { year, month },

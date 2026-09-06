@@ -11,6 +11,7 @@ import theme from "../styles/theme"
 import AppRoutes from "./routes"
 import AuthBootstrap from "./AuthBootstrap"
 import ErrorBoundary from "../components/ErrorBoundary"
+import { SocketProvider } from "../context/SocketContext"
 
 const App = () => {
   return (
@@ -18,13 +19,15 @@ const App = () => {
       <Provider store={store}>
         <BrowserRouter>
           <ThemeProvider theme={theme}>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <CssBaseline />
-            <Toaster position="top-right" toastOptions={{ duration: 1000 }} />
-            <AuthBootstrap>
-              <AppRoutes />
-            </AuthBootstrap>
-          </LocalizationProvider>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <CssBaseline />
+              <Toaster position="top-right" toastOptions={{ duration: 1000 }} />
+              <AuthBootstrap>
+                <SocketProvider>
+                  <AppRoutes />
+                </SocketProvider>
+              </AuthBootstrap>
+            </LocalizationProvider>
           </ThemeProvider>
         </BrowserRouter>
       </Provider>
