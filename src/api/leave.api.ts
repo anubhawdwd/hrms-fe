@@ -10,7 +10,9 @@ import type {
   Holiday,
   LeaveTodayResponse,
   LeavePolicy,
-  RolloverResult,
+  RolloverPreviewResult,
+  RunRolloverPayload,
+  RunRolloverResponse,
   BulkAllocatePayload,
   BulkAllocateResult,
 } from '../types/leave.types'
@@ -114,16 +116,13 @@ export const leaveApi = {
 
 
   // ─── Policies ───
-  getPolicies: async (year: number): Promise<LeavePolicy[]> => {
-    const { data } = await apiClient.get<LeavePolicy[]>('/api/leave/policies', {
-      params: { year },
-    })
+  getPolicies: async (): Promise<LeavePolicy[]> => {
+    const { data } = await apiClient.get<LeavePolicy[]>('/api/leave/policies')
     return data
   },
 
   upsertPolicy: async (payload: {
     leaveTypeId: string
-    year: number
     yearlyAllocation: number
     allowCarryForward: boolean
     maxCarryForward?: number | null
@@ -139,11 +138,19 @@ export const leaveApi = {
     return data
   },
 
-  runRollover: async (payload: {
+  previewRollover: async (payload: {
     fromYear: number
     toYear: number
-  }): Promise<RolloverResult> => {
-    const { data } = await apiClient.post<RolloverResult>(
+  }): Promise<RolloverPreviewResult> => {
+    const { data } = await apiClient.post<RolloverPreviewResult>(
+      '/api/leave/rollover/preview',
+      payload
+    )
+    return data
+  },
+
+  runRollover: async (payload: RunRolloverPayload): Promise<RunRolloverResponse> => {
+    const { data } = await apiClient.post<RunRolloverResponse>(
       '/api/leave/rollover',
       payload
     )

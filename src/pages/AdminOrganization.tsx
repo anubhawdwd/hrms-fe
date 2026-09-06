@@ -123,18 +123,15 @@ const AdminOrganization: React.FC = () => {
   const [leaveTypeStatusFilter, setLeaveTypeStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
 
   // ─── Leave Policy States ───
-  const [selectedPolicyYear, setSelectedPolicyYear] = useState<number>(new Date().getFullYear())
   const [leaveTypesList, setLeaveTypesList] = useState<LeaveType[]>([])
   const [leavePoliciesLoading, setLeavePoliciesLoading] = useState<boolean>(false)
   const [rolloverModalOpen, setRolloverModalOpen] = useState<boolean>(false)
   const [bulkAllocateModalOpen, setBulkAllocateModalOpen] = useState<boolean>(false)
   const [policyEditStates, setPolicyEditStates] = useState<Record<string, {
-    yearlyAllocation: number
+    yearlyAllocation: number | ''
     allowCarryForward: boolean
     maxCarryForward: number | ''
-    allowEncashment: boolean
-    probationAllowed: boolean
-    monthlyAccrual: boolean
+    isConfigured?: boolean
     saving?: boolean
   }>>({})
 
@@ -196,12 +193,12 @@ const AdminOrganization: React.FC = () => {
     }
   }
 
-  const loadLeavePoliciesData = useCallback(async (year: number) => {
+  const loadLeavePoliciesData = useCallback(async () => {
     setLeavePoliciesLoading(true)
     try {
       const [types, policies] = await Promise.all([
         leaveApi.getTypes(),
-        leaveApi.getPolicies(year),
+        leaveApi.getPolicies(),
       ])
       setLeaveTypesList(types)
 
@@ -209,12 +206,10 @@ const AdminOrganization: React.FC = () => {
       for (const t of types) {
         const p = policies.find((pol) => pol.leaveTypeId === t.id)
         editMap[t.id] = {
-          yearlyAllocation: p?.yearlyAllocation ?? 12,
+          yearlyAllocation: p ? p.yearlyAllocation : '',
           allowCarryForward: p?.allowCarryForward ?? false,
           maxCarryForward: p?.maxCarryForward ?? '',
-          allowEncashment: p?.allowEncashment ?? false,
-          probationAllowed: p?.probationAllowed ?? false,
-          monthlyAccrual: p?.monthlyAccrual ?? false,
+          isConfigured: Boolean(p),
         }
       }
       setPolicyEditStates(editMap)
@@ -236,7 +231,7 @@ const AdminOrganization: React.FC = () => {
         employeeApi.list().catch(() => []),
         attendanceApi.listEmployeeOverrides().catch(() => []),
         organizationApi.getTeamsSetting().catch(() => ({ usesTeams: false })),
-        loadLeavePoliciesData(selectedPolicyYear).catch(() => null),
+        loadLeavePoliciesData().catch(() => null),
       ])
 
       setUsesTeams(teamsSetting?.usesTeams ?? false)
@@ -263,7 +258,7 @@ const AdminOrganization: React.FC = () => {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [loadLeavePoliciesData, selectedPolicyYear])
+  }, [loadLeavePoliciesData])
 
   useEffect(() => {
     loadAllData()
@@ -272,15 +267,15 @@ const AdminOrganization: React.FC = () => {
   // ─── Tab-Switch Effect for Leave Types (Tab 4) & Policies (Tab 5) ───
   useEffect(() => {
     if (activeTab === 4 || activeTab === 5) {
-      loadLeavePoliciesData(selectedPolicyYear)
+      loadLeavePoliciesData()
     }
-  }, [activeTab, selectedPolicyYear, loadLeavePoliciesData])
+  }, [activeTab, loadLeavePoliciesData])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     await Promise.all([
       loadAllData(true),
-      loadLeavePoliciesData(selectedPolicyYear),
+      loadLeavePoliciesData(),
     ])
     toast.success('Organization data refreshed')
   }
@@ -453,7 +448,7 @@ const AdminOrganization: React.FC = () => {
 
       setLeaveTypeModalOpen(false)
       // Reload both leave types and policies
-      await loadLeavePoliciesData(selectedPolicyYear)
+      await loadLeavePoliciesData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to save leave type')
     } finally {
@@ -467,7 +462,7 @@ const AdminOrganization: React.FC = () => {
       await leaveApi.updateType(type.id, { isActive: !type.isActive })
       toast.success(`Leave type ${type.isActive ? 'deactivated' : 'reactivated'} successfully`)
       setDeactivateLeaveTypeTarget(null)
-      await loadLeavePoliciesData(selectedPolicyYear)
+      await loadLeavePoliciesData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to update leave type status')
     } finally {
@@ -481,6 +476,11 @@ const AdminOrganization: React.FC = () => {
     const edit = policyEditStates[leaveTypeId]
     if (!edit) return
 
+    if (edit.yearlyAllocation === '' || isNaN(Number(edit.yearlyAllocation)) || Number(edit.yearlyAllocation) < 0) {
+      toast.error("Please enter a valid yearly allocation (>= 0)")
+      return
+    }
+
     setPolicyEditStates((prev) => ({
       ...prev,
       [leaveTypeId]: { ...prev[leaveTypeId], saving: true },
@@ -489,21 +489,20 @@ const AdminOrganization: React.FC = () => {
     try {
       await leaveApi.upsertPolicy({
         leaveTypeId,
-        year: selectedPolicyYear,
         yearlyAllocation: Number(edit.yearlyAllocation),
         allowCarryForward: edit.allowCarryForward,
         maxCarryForward:
           edit.allowCarryForward && edit.maxCarryForward !== ''
             ? Number(edit.maxCarryForward)
             : null,
-        allowEncashment: edit.allowEncashment,
-        probationAllowed: edit.probationAllowed,
-        monthlyAccrual: edit.monthlyAccrual,
+        allowEncashment: false,
+        probationAllowed: false,
+        monthlyAccrual: false,
       })
 
       const typeName = leaveTypesList.find((t) => t.id === leaveTypeId)?.name || 'Leave'
-      toast.success(`Updated policy for ${typeName} (${selectedPolicyYear})`)
-      loadLeavePoliciesData(selectedPolicyYear)
+      toast.success(`Updated policy for ${typeName}`)
+      loadLeavePoliciesData()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || 'Failed to save policy')
       setPolicyEditStates((prev) => ({
@@ -831,17 +830,7 @@ const AdminOrganization: React.FC = () => {
           <Tab
             icon={<EventNoteIcon fontSize="small" />}
             iconPosition="start"
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <span>Leave Policies</span>
-                <Chip
-                  label={String(selectedPolicyYear)}
-                  size="small"
-                  color="secondary"
-                  sx={{ height: 20, fontSize: '0.75rem', fontWeight: 700 }}
-                />
-              </Box>
-            }
+            label="Leave Policies"
           />
         </Tabs>
       </Paper>
@@ -1880,7 +1869,7 @@ const AdminOrganization: React.FC = () => {
               >
                 <Box>
                   <Typography variant="h6" fontWeight={700}>
-                    Company Leave Policies ({selectedPolicyYear})
+                    Company Leave Policies
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Configure yearly allocations, carry-forward caps, and renewal rules per leave type
@@ -1888,24 +1877,6 @@ const AdminOrganization: React.FC = () => {
                 </Box>
 
                 <Stack direction="row" spacing={2} alignItems="center">
-                  <TextField
-                    select
-                    size="small"
-                    label="Policy Year"
-                    value={selectedPolicyYear}
-                    onChange={(e) => {
-                      const yr = Number(e.target.value)
-                      setSelectedPolicyYear(yr)
-                      loadLeavePoliciesData(yr)
-                    }}
-                    sx={{ width: 140 }}
-                  >
-                    {[2025, 2026, 2027, 2028, 2029].map((yr) => (
-                      <MenuItem key={yr} value={yr}>
-                        {yr}
-                      </MenuItem>
-                    ))}
-                  </TextField>
 
                   <Button
                     variant="contained"
@@ -1932,9 +1903,9 @@ const AdminOrganization: React.FC = () => {
                 <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
                   <CircularProgress size={32} />
                 </Box>
-              ) : leaveTypesList.length === 0 ? (
+              ) : leaveTypesList.filter((t) => t.code !== 'LWP' && t.isPaid !== false).length === 0 ? (
                 <Alert severity="info" sx={{ borderRadius: 2 }}>
-                  No leave types configured for this company.
+                  No configurable paid leave types found for this company.
                 </Alert>
               ) : (
                 <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
@@ -1945,149 +1916,129 @@ const AdminOrganization: React.FC = () => {
                         <TableCell sx={{ fontWeight: 700 }}>Yearly Allocation</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Allow Carry-Forward</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>Max Carry-Forward</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Encashment / Probation</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {leaveTypesList.map((type) => {
-                        const edit = policyEditStates[type.id] || {
-                          yearlyAllocation: 12,
-                          allowCarryForward: false,
-                          maxCarryForward: '',
-                          allowEncashment: false,
-                          probationAllowed: false,
-                          monthlyAccrual: false,
-                        }
+                      {leaveTypesList
+                        .filter((t) => t.code !== 'LWP' && t.isPaid !== false)
+                        .map((type) => {
+                          const edit = policyEditStates[type.id] || {
+                            yearlyAllocation: '',
+                            allowCarryForward: false,
+                            maxCarryForward: '',
+                            isConfigured: false,
+                          }
+                          const isConfigured = Boolean(edit.isConfigured)
 
-                        return (
-                          <TableRow key={type.id} hover>
-                            <TableCell>
-                              <Typography variant="body2" fontWeight={700}>
-                                {type.name}
-                              </Typography>
-                              <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                                <Chip label={type.code} size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />
-                                <Chip
-                                  label={type.isPaid ? 'Paid' : 'Unpaid'}
-                                  size="small"
-                                  color={type.isPaid ? 'success' : 'default'}
-                                  variant="outlined"
-                                  sx={{ height: 20, fontSize: '0.7rem' }}
-                                />
-                              </Box>
-                            </TableCell>
-
-                            <TableCell>
-                              <TextField
-                                type="number"
-                                size="small"
-                                inputProps={{ min: 0, step: 0.5 }}
-                                value={edit.yearlyAllocation}
-                                onChange={(e) =>
-                                  setPolicyEditStates((prev) => ({
-                                    ...prev,
-                                    [type.id]: { ...prev[type.id], yearlyAllocation: Number(e.target.value) },
-                                  }))
-                                }
-                                sx={{ width: 100 }}
-                              />
-                            </TableCell>
-
-                            <TableCell>
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={edit.allowCarryForward}
-                                    onChange={(e) =>
-                                      setPolicyEditStates((prev) => ({
-                                        ...prev,
-                                        [type.id]: {
-                                          ...prev[type.id],
-                                          allowCarryForward: e.target.checked,
-                                          maxCarryForward: e.target.checked ? (prev[type.id]?.maxCarryForward || 5) : '',
-                                        },
-                                      }))
-                                    }
-                                    color="primary"
+                          return (
+                            <TableRow key={type.id} hover>
+                              <TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="body2" fontWeight={700}>
+                                    {type.name}
+                                  </Typography>
+                                  {!isConfigured && (
+                                    <Chip
+                                      label="Not configured"
+                                      size="small"
+                                      variant="outlined"
+                                      color="warning"
+                                      sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
+                                    />
+                                  )}
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                                  <Chip label={type.code} size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />
+                                  <Chip
+                                    label={type.isPaid ? 'Paid' : 'Unpaid'}
+                                    size="small"
+                                    color={type.isPaid ? 'success' : 'default'}
+                                    variant="outlined"
+                                    sx={{ height: 20, fontSize: '0.7rem' }}
                                   />
-                                }
-                                label={edit.allowCarryForward ? 'Enabled' : 'Disabled'}
-                              />
-                            </TableCell>
+                                </Box>
+                              </TableCell>
 
-                            <TableCell>
-                              <TextField
-                                type="number"
-                                size="small"
-                                placeholder="Unlimited"
-                                disabled={!edit.allowCarryForward}
-                                inputProps={{ min: 0, step: 1 }}
-                                value={edit.maxCarryForward}
-                                onChange={(e) =>
-                                  setPolicyEditStates((prev) => ({
-                                    ...prev,
-                                    [type.id]: {
-                                      ...prev[type.id],
-                                      maxCarryForward: e.target.value === '' ? '' : Number(e.target.value),
-                                    },
-                                  }))
-                                }
-                                helperText={edit.allowCarryForward ? 'Cap (days) or blank' : 'Carry forward off'}
-                                sx={{ width: 120 }}
-                              />
-                            </TableCell>
+                              <TableCell>
+                                <TextField
+                                  type="number"
+                                  size="small"
+                                  placeholder="Not configured"
+                                  inputProps={{ min: 0, step: 0.5 }}
+                                  value={edit.yearlyAllocation}
+                                  onChange={(e) =>
+                                    setPolicyEditStates((prev) => ({
+                                      ...prev,
+                                      [type.id]: {
+                                        ...prev[type.id],
+                                        yearlyAllocation: e.target.value === '' ? '' : Number(e.target.value),
+                                      },
+                                    }))
+                                  }
+                                  sx={{ width: 140 }}
+                                />
+                              </TableCell>
 
-                            <TableCell>
-                              <Stack spacing={0.5}>
+                              <TableCell>
                                 <FormControlLabel
                                   control={
                                     <Switch
-                                      size="small"
-                                      checked={edit.allowEncashment}
+                                      checked={edit.allowCarryForward}
                                       onChange={(e) =>
                                         setPolicyEditStates((prev) => ({
                                           ...prev,
-                                          [type.id]: { ...prev[type.id], allowEncashment: e.target.checked },
+                                          [type.id]: {
+                                            ...prev[type.id],
+                                            allowCarryForward: e.target.checked,
+                                            maxCarryForward: e.target.checked ? (prev[type.id]?.maxCarryForward || 5) : '',
+                                          },
                                         }))
                                       }
+                                      color="primary"
                                     />
                                   }
-                                  label={<Typography variant="caption">Encashment</Typography>}
+                                  label={edit.allowCarryForward ? 'Enabled' : 'Disabled'}
                                 />
-                                <FormControlLabel
-                                  control={
-                                    <Switch
-                                      size="small"
-                                      checked={edit.probationAllowed}
-                                      onChange={(e) =>
-                                        setPolicyEditStates((prev) => ({
-                                          ...prev,
-                                          [type.id]: { ...prev[type.id], probationAllowed: e.target.checked },
-                                        }))
-                                      }
-                                    />
-                                  }
-                                  label={<Typography variant="caption">Probation Allowed</Typography>}
-                                />
-                              </Stack>
-                            </TableCell>
+                              </TableCell>
 
-                            <TableCell align="right">
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={edit.saving ? <CircularProgress size={14} /> : <TuneIcon />}
-                                disabled={edit.saving}
-                                onClick={() => handleSaveLeavePolicy(type.id)}
-                                sx={{ fontWeight: 600 }}
-                              >
-                                {edit.saving ? 'Saving...' : 'Save'}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
+                              <TableCell>
+                                <TextField
+                                  type="number"
+                                  size="small"
+                                  placeholder="Unlimited"
+                                  disabled={!edit.allowCarryForward}
+                                  inputProps={{ min: 0, step: 1 }}
+                                  value={edit.maxCarryForward}
+                                  onChange={(e) =>
+                                    setPolicyEditStates((prev) => ({
+                                      ...prev,
+                                      [type.id]: {
+                                        ...prev[type.id],
+                                        maxCarryForward: e.target.value === '' ? '' : Number(e.target.value),
+                                      },
+                                    }))
+                                  }
+                                  helperText={edit.allowCarryForward ? 'Cap (days) or blank' : 'Carry forward off'}
+                                  sx={{ width: 130 }}
+                                />
+                              </TableCell>
+
+                              <TableCell align="right">
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  startIcon={edit.saving ? <CircularProgress size={14} /> : <TuneIcon />}
+                                  disabled={edit.saving}
+                                  onClick={() => handleSaveLeavePolicy(type.id)}
+                                  sx={{ fontWeight: 600 }}
+                                >
+                                  {edit.saving ? 'Saving...' : 'Save Policy'}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -2582,14 +2533,14 @@ const AdminOrganization: React.FC = () => {
         open={bulkAllocateModalOpen}
         onClose={() => setBulkAllocateModalOpen(false)}
         leaveTypes={leaveTypesList}
-        initialYear={selectedPolicyYear}
-        onSuccess={() => loadLeavePoliciesData(selectedPolicyYear)}
+        initialYear={new Date().getFullYear()}
+        onSuccess={() => loadLeavePoliciesData()}
       />
 
       <AdminYearEndRolloverDialog
         open={rolloverModalOpen}
         onClose={() => setRolloverModalOpen(false)}
-        onSuccess={() => loadLeavePoliciesData(selectedPolicyYear)}
+        onSuccess={() => loadLeavePoliciesData()}
       />
 
       {/* 7. Designation Attendance Policy Dialog */}

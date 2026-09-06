@@ -129,7 +129,10 @@ const AdminEmployeeQuickEditModal: React.FC<Props> = ({
 }) => {
   const theme = useTheme()
   const currentUser = useUser()
-  const isHrOrAdmin = currentUser?.role === 'HR' || currentUser?.role === 'COMPANY_ADMIN'
+  const userRoles = currentUser?.roles && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : [])
+  const isHrOrAdmin = userRoles.includes('HR') || userRoles.includes('COMPANY_ADMIN') || userRoles.includes('SUPER_ADMIN')
   const [activeTab, setActiveTab] = useState<number>(0)
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false)
   const [offboardModalOpen, setOffboardModalOpen] = useState<boolean>(false)

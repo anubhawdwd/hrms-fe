@@ -33,7 +33,10 @@ const AdminEmployeeProfile = () => {
   const [offboardModalOpen, setOffboardModalOpen] = useState(false)
   const [reactivateModalOpen, setReactivateModalOpen] = useState(false)
   const [quickEditOpen, setQuickEditOpen] = useState(false)
-  const isHrOrAdmin = currentUser?.role === 'HR' || currentUser?.role === 'COMPANY_ADMIN'
+  const userRoles = currentUser?.roles && currentUser.roles.length > 0
+    ? currentUser.roles
+    : (currentUser?.role ? [currentUser.role] : [])
+  const isHrOrAdmin = userRoles.includes('HR') || userRoles.includes('COMPANY_ADMIN') || userRoles.includes('SUPER_ADMIN')
   const { employee, loading, error, reload } = useEmployeeById(employeeId)
 
   if (loading) return <LoadingState />

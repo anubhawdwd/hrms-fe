@@ -115,7 +115,6 @@ export interface LeavePolicy {
   id?: string
   companyId?: string
   leaveTypeId: string
-  year: number
   yearlyAllocation: number
   allowCarryForward: boolean
   maxCarryForward: number | null
@@ -155,3 +154,54 @@ export interface BulkAllocateResult {
   errors: { employeeId: string; reason: string }[]
 }
 
+
+
+export interface RolloverPreviewItem {
+  employeeId: string
+  employeeCode: number
+  employeeName: string
+  leaveTypeId: string
+  leaveTypeCode: string
+  leaveTypeName: string
+  fromYearRemaining: number
+  policyAllocated: number
+  carryForwardDays: number
+  toYearUsed: number
+  toYearProjectedRemaining: number
+  status: "READY" | "ALREADY_ROLLED_OVER"
+}
+
+export interface SkippedLeaveTypeReport {
+  leaveTypeId: string
+  leaveTypeCode: string
+  leaveTypeName: string
+  reason: string
+}
+
+export interface RolloverPreviewResult {
+  fromYear: number
+  toYear: number
+  totalEmployees: number
+  eligibleBalancesCount: number
+  totalCarriedForwardDays: number
+  alreadyRolledOver: boolean
+  alreadyRolledOverCount: number
+  items: RolloverPreviewItem[]
+}
+
+export interface RunRolloverPayload {
+  fromYear: number
+  toYear: number
+  forceOverwrite?: boolean
+  reason?: string
+}
+
+export interface RunRolloverResponse {
+  success: boolean
+  fromYear: number
+  toYear: number
+  totalEmployees: number
+  processedCount: number
+  totalCarriedForwardDays: number
+  auditLogId?: string
+}
