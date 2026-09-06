@@ -24,6 +24,7 @@ const SocketContext = createContext<SocketContextValue>({
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth()
   const [isConnected, setIsConnected] = useState(false)
+  const [socket, setSocket] = useState<Socket | null>(null)
   const socketRef = useRef<Socket | null>(null)
   const syncListenersRef = useRef<Map<string, Set<() => void>>>(new Map())
   const navigate = useNavigate()
@@ -45,6 +46,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (socketRef.current) {
         socketRef.current.disconnect()
         socketRef.current = null
+        setSocket(null)
         setIsConnected(false)
       }
       return
@@ -60,6 +62,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     })
 
     socketRef.current = socketInstance
+    setSocket(socketInstance)
 
     socketInstance.on('connect', () => {
       setIsConnected(true)
@@ -81,7 +84,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // ─── Real-Time Toast on Notification Receipt ───
     socketInstance.on('notification:new', (notification: any) => {
-      // Trigger manual-dismiss-only toast with duration: Infinity
       toast.custom(
         (t) => (
           <Paper
@@ -149,12 +151,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       socketInstance.disconnect()
       socketRef.current = null
+      setSocket(null)
       setIsConnected(false)
     }
   }, [user, navigate])
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, isConnected, subscribeSync }}>
+    <SocketContext.Provider value={{ socket, isConnected, subscribeSync }}>
       {children}
     </SocketContext.Provider>
   )

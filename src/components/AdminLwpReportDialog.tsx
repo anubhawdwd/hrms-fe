@@ -1,5 +1,5 @@
 // src/components/AdminLwpReportDialog.tsx
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -87,7 +87,7 @@ export const AdminLwpReportDialog: React.FC<Props> = ({ open, onClose }) => {
     dayWiseRecords: LwpDayRecord[]
   } | null>(null)
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true)
     try {
       const data = await leaveApi.getLwpReport(year, month)
@@ -97,13 +97,13 @@ export const AdminLwpReportDialog: React.FC<Props> = ({ open, onClose }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [year, month])
 
   useEffect(() => {
     if (open) {
       fetchReport()
     }
-  }, [open, year, month])
+  }, [open, fetchReport])
 
   // Days in selected month
   const daysList = useMemo(() => {

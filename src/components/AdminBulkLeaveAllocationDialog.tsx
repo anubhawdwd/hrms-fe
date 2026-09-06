@@ -1,5 +1,5 @@
 // src/components/AdminBulkLeaveAllocationDialog.tsx
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -57,18 +57,7 @@ export const AdminBulkLeaveAllocationDialog = ({
   const [submitting, setSubmitting] = useState<boolean>(false)
   const [result, setResult] = useState<BulkAllocateResult | null>(null)
 
-  useEffect(() => {
-    if (open) {
-      setYear(initialYear || currentYear)
-      if (leaveTypes.length > 0 && !leaveTypeId) {
-        setLeaveTypeId(leaveTypes[0].id)
-      }
-      setResult(null)
-      loadEmployees()
-    }
-  }, [open, initialYear, leaveTypes])
-
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setEmployeesLoading(true)
     try {
       const data = await employeeApi.list()
@@ -78,7 +67,18 @@ export const AdminBulkLeaveAllocationDialog = ({
     } finally {
       setEmployeesLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (open) {
+      setYear(initialYear || currentYear)
+      if (leaveTypes.length > 0) {
+        setLeaveTypeId((prev) => prev || leaveTypes[0].id)
+      }
+      setResult(null)
+      loadEmployees()
+    }
+  }, [open, initialYear, leaveTypes, currentYear, loadEmployees])
 
   // Calculate estimated target count
   const estimatedTargetCount = useMemo(() => {

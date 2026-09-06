@@ -82,7 +82,7 @@ export const AdminEditLeaveAllocationDialog: React.FC<Props> = ({
       }
       setReason('')
     }
-  }, [open, existingBalance])
+  }, [open, existingBalance, activeLeaveTypes, currentBalances])
 
   // When user switches leave type from dropdown, update target balance defaults
   const handleTypeChange = (newTypeId: string) => {

@@ -64,7 +64,8 @@ import type {
   DashboardAttendanceStatus,
   AttendanceDashboardSession,
 } from "../types/attendance.types"
-import { DaySessionDetail, STATUS_CONFIG } from "../components/DaySessionDetail"
+import { DaySessionDetail } from "../components/DaySessionDetail"
+import { STATUS_CONFIG } from "../utils/attendanceStatusConfig"
 
 const MONTH_NAMES = [
   "January",

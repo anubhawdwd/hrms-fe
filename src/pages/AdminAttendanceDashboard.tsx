@@ -54,7 +54,8 @@ import type { LeaveRequestWithEmployee } from '../types/leave.types'
 import PageHeader from '../components/PageHeader'
 import { useSocketSync } from '../context/SocketContext'
 import LoadingState from '../components/LoadingState'
-import { DaySessionDetail, STATUS_CONFIG } from '../components/DaySessionDetail'
+import { DaySessionDetail } from '../components/DaySessionDetail'
+import { STATUS_CONFIG } from '../utils/attendanceStatusConfig'
 
 // Helper date utilities
 function getCurrentMonthStr(): string {

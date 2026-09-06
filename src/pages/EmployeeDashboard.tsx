@@ -100,51 +100,6 @@ const SectionHeader = ({
   </Box>
 )
 
-/* ─── Stat Pill Component ─── */
-// @ts-ignore
-const StatPill = ({
-  label,
-  value,
-  color = 'primary',
-}: {
-  label: string
-  value: string | number
-  color?: 'primary' | 'success' | 'warning' | 'error' | 'info'
-}) => {
-  const theme = useTheme()
-  const colorMap = {
-    primary: theme.palette.primary.main,
-    success: theme.palette.success.main,
-    warning: theme.palette.warning.main,
-    error: theme.palette.error.main,
-    info: theme.palette.info.main,
-  }
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        p: 1.5,
-        borderRadius: '12px',
-        bgcolor: alpha(colorMap[color], 0.06),
-        minWidth: 80,
-      }}
-    >
-      <Typography
-        variant="h6"
-        fontWeight={800}
-        sx={{ color: colorMap[color], lineHeight: 1.2 }}
-      >
-        {value}
-      </Typography>
-      <Typography variant="caption" color="text.secondary" fontWeight={500}>
-        {label}
-      </Typography>
-    </Box>
-  )
-}
-
 /* ─── Person Card Component ─── */
 const PersonCard = ({
   name,
@@ -419,17 +374,7 @@ const EmployeeDashboard = () => {
     return { h, m, s }
   }, [])
 
-  // @ts-ignore
-  const formatTimeStr = useCallback(
-    (totalSeconds: number, showSeconds = false) => {
-      const { h, m, s } = formatTime(totalSeconds)
-      if (showSeconds) return `${h}h ${m}m ${s}s`
-      return `${h}h ${m}m`
-    },
-    [formatTime]
-  )
-
-  const formatMinutes = useCallback((mins: number) => {
+    const formatMinutes = useCallback((mins: number) => {
     const h = Math.floor(mins / 60)
     const m = mins % 60
     return `${h}h ${m}m`

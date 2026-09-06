@@ -159,6 +159,7 @@ export const NotificationBell: React.FC = () => {
       setUnreadCount(0)
       toast.success('All notifications deleted')
       setConfirmDeleteAllOpen(false)
+      handleClose()
     } catch {
       toast.error('Failed to delete notifications')
     } finally {
